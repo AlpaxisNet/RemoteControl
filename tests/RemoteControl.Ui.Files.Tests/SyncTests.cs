@@ -146,7 +146,9 @@ public sealed class SyncTests
         TestUi.Find<TabControl>(window, "Pages").SelectedIndex = 2;
         TestUi.Settle();
         Click(TestUi.Find<Button>(window, "GitInitButton"));
-        await TestUi.WaitUntilAsync(() => window.GitResult == "Done.", GitWait, "git init");
+        // The result line is the engine's ("Initialize: done", or git's first line when it failed), whatever the order of events.
+        await TestUi.WaitUntilAsync(() => window.GitResult.StartsWith("Initialize: ", StringComparison.Ordinal), GitWait, "git init");
+        Assert.Equal("Initialize: done", window.GitResult);
         Assert.Contains(window.Shown.Log, line => line.Contains("Git repository initialized", StringComparison.Ordinal));
         Click(TestUi.Find<Button>(window, "GitCommitButton"));
         await TestUi.WaitUntilAsync(() => window.Shown.Log.Any(line => line.Contains("Sync changes committed", StringComparison.Ordinal)), GitWait, "git commit");

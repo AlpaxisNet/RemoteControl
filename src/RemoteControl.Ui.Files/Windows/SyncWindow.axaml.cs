@@ -366,7 +366,10 @@ internal sealed partial class SyncWindow : RcWindow
         CommitRemoteUrl();
         GitResultText.Text = "Running…";
         RemoteControl.Core.GitResult result = await command(engine).ConfigureAwait(true);
-        if (!IsClosed) GitResultText.Text = result.Success ? "Done." : FirstLine(result.Output);
+        // The engine tells the result of every git step, a button's and its own, through GitCompleted, and that is what the line
+        // shows ("Commit: done"). Writing it here as well gave two texts whose order depended on the machine. Only a step that
+        // never reached git (no engine event) is told here.
+        if (!IsClosed && GitResultText.Text == "Running…") GitResultText.Text = result.Success ? "Done." : FirstLine(result.Output);
     }
 
     private async Task ImportKeyAsync()
