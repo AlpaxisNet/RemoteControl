@@ -528,6 +528,14 @@ internal sealed partial class FileBrowserWindow : RcWindow
                 if (origin is { } at && !view.Intersects(new Rect(at, container.Bounds.Size))) continue;
             }
 
+            // A picture that is cached by now (asked for by the list view, or finished since the items were made) is shown at once.
+            if (_thumbnails && item.ImageSize != PreviewRules.ThumbnailSize && _cache.Get(KeyOf(row)) is { } cached)
+            {
+                item.Image = cached.Thumbnail;
+                item.ImageSize = PreviewRules.ThumbnailSize;
+                continue;
+            }
+
             if (QueuePreview(row)) queued++;
         }
     }
@@ -594,7 +602,9 @@ internal sealed partial class FileBrowserWindow : RcWindow
 
             if (!fromDisk) _ = _cache.WriteAsync(key, content);
             _cache.Put(key, image);
-            if (generation == _generation && !IsClosed) ApplyPreview(path, image);
+            // Shown wherever that file is on screen now, also when the view changed while the picture was on its way (it was only
+            // cached then, and the file kept its plain icon). ApplyPreview touches nothing but the item with this very path.
+            if (!IsClosed) ApplyPreview(path, image);
             return true;
         }, false);
         return true;

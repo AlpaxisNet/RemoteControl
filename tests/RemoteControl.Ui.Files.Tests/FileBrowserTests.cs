@@ -376,6 +376,28 @@ public sealed class FileBrowserTests
         Assert.False(f.Fake.WasCalled("FileBrowser.DownloadAsync"));
     }
 
+    /// <summary>
+    /// A preview that is still downloading when the view changes to icons must end up as the file's thumbnail. It was cached but
+    /// never shown (the result belonged to the view before the change), so the file kept its plain icon until the folder was
+    /// read again: seen as a test that failed now and then on the build machines.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task A_preview_still_downloading_when_the_view_changes_becomes_the_thumbnail()
+    {
+        using var f = new Fixture();
+        var download = new TaskCompletionSource<byte[]?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        f.Browser.DownloadHandler = _ => download.Task;
+        FileBrowserWindow window = f.OpenWithListing("levels/", Fixture.File("p.png", 100));
+        await TestUi.WaitUntilAsync(() => f.Fake.WasCalled("FileBrowser.DownloadAsync"), what: "the classic view's preview download");
+
+        f.Test.Environment.SetOptions(o => o with { ModernFileBrowser = true, FileBrowserThumbnails = true });
+        Assert.True(window.IsModern);
+        window.QueueVisibleThumbnails();
+        download.SetResult(Fixture.Png(40, 40));
+
+        await TestUi.WaitUntilAsync(() => window.ModernItems.Single(item => item.Name == "p.png").ImageSize == PreviewRules.ThumbnailSize, TimeSpan.FromSeconds(5), "the thumbnail");
+    }
+
     [AvaloniaFact]
     public async Task The_modern_view_follows_the_option_live()
     {
