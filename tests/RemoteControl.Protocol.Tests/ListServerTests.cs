@@ -66,7 +66,8 @@ public sealed class ListServerTests
         listener.Start();
         int port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
-        ListServerResult result = await ListServerClient.LoginAsync("127.0.0.1", port, "Staff", "secret", TimeSpan.FromSeconds(2)).Within();
+        // Linux refuses at once; Windows tries a closed local port for about two seconds first, so the limit leaves room for that.
+        ListServerResult result = await ListServerClient.LoginAsync("127.0.0.1", port, "Staff", "secret", TimeSpan.FromSeconds(10)).Within(TimeSpan.FromSeconds(20));
         Assert.False(result.Success);
         Assert.StartsWith("Failed to connect", result.Error);
     }

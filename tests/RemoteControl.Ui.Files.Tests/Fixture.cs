@@ -88,8 +88,9 @@ internal sealed class Fixture : IDisposable
     /// <summary>Writes the harmless git script into the test's folder.</summary>
     public void CreateGitScript()
     {
-        string script = Path.Combine(Test.Environment.Root, "fake-git.sh");
-        System.IO.File.WriteAllText(script, "#!/bin/sh\nexit 0\n");
+        // A shell script on Unix, a batch file on Windows (which starts .cmd files itself; it cannot start a shell script).
+        string script = Path.Combine(Test.Environment.Root, OperatingSystem.IsWindows() ? "fake-git.cmd" : "fake-git.sh");
+        System.IO.File.WriteAllText(script, OperatingSystem.IsWindows() ? "@exit /b 0\r\n" : "#!/bin/sh\nexit 0\n");
         if (!OperatingSystem.IsWindows()) System.IO.File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         GitScript = script;
     }

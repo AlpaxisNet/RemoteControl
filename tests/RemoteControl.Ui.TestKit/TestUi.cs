@@ -27,7 +27,21 @@ namespace RemoteControl.Ui.TestKit;
 public static class TestUi
 {
     /// <summary>The default time <see cref="WaitUntil"/> waits.</summary>
-    public static TimeSpan DefaultTimeout { get; } = TimeSpan.FromSeconds(3);
+    public static TimeSpan DefaultTimeout { get; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>The shortest time a wait lasts before it gives up, whatever limit a test names.</summary>
+    public static TimeSpan MinimumTimeout { get; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// The limit of a wait. A wait ends as soon as its condition holds, so a generous limit costs a passing test nothing, while a
+    /// short one made tests fail on build machines that are several times slower than a desktop: a limit below
+    /// <see cref="MinimumTimeout"/> is raised to it.
+    /// </summary>
+    private static TimeSpan Limit(TimeSpan? timeout)
+    {
+        TimeSpan limit = timeout ?? DefaultTimeout;
+        return limit < MinimumTimeout ? MinimumTimeout : limit;
+    }
 
     /// <summary>Runs the queued dispatcher jobs and a render tick a few times, so that layout, bindings and posted work are done.</summary>
     public static void Settle()
@@ -52,7 +66,7 @@ public static class TestUi
     {
         ArgumentNullException.ThrowIfNull(condition);
         var watch = Stopwatch.StartNew();
-        TimeSpan limit = timeout ?? DefaultTimeout;
+        TimeSpan limit = Limit(timeout);
         while (true)
         {
             Settle();
@@ -72,7 +86,7 @@ public static class TestUi
     {
         ArgumentNullException.ThrowIfNull(condition);
         var watch = Stopwatch.StartNew();
-        TimeSpan limit = timeout ?? DefaultTimeout;
+        TimeSpan limit = Limit(timeout);
         while (true)
         {
             Settle();
