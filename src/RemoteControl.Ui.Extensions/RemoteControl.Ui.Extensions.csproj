@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The extensions window and what connects extensions and the MCP server to the windows. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Extensions</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteControl.Extensions\RemoteControl.Extensions.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Extensions.Tests" />
+  </ItemGroup>
+</Project>

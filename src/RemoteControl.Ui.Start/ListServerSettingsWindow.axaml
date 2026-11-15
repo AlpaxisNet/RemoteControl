@@ -1,0 +1,60 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Start"
+             x:Class="RemoteControl.Ui.Start.ListServerSettingsWindow"
+             Title="RC settings"
+             Width="292" SizeToContent="Height" CanResize="False"
+             WindowStartupLocation="CenterOwner"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Start/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <!-- The C++ test: the natural width stays at most 300. -->
+  <DockPanel x:Name="Root" MaxWidth="296">
+    <Grid DockPanel.Dock="Bottom" Margin="6,3,6,6" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
+      <TextBlock Text="Theme:" VerticalAlignment="Center" />
+      <ComboBox x:Name="ThemeCombo" Grid.Column="1" HorizontalAlignment="Left" MinWidth="120" AutomationProperties.Name="Theme" />
+      <Button x:Name="CloseButton" Grid.Column="2" Padding="8,4">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Close}" />
+          <TextBlock Text="Close" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <HeaderedContentControl Classes="frame" Header="Saved list servers" Margin="6,0,6,0" Padding="6">
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="4" ColumnSpacing="5">
+        <TextBlock Grid.ColumnSpan="2" Text="Saved profile:" />
+        <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="2">
+          <ComboBox x:Name="ProfileCombo" HorizontalAlignment="Stretch" AutomationProperties.Name="Saved list-server profiles">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ProfileChoice">
+                <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Value}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button x:Name="NewProfileButton" Grid.Column="1" Classes="icon" ToolTip.Tip="New list server profile" AutomationProperties.Name="New list server profile">
+            <PathIcon Data="{x:Static local:Icons.Add}" />
+          </Button>
+          <Button x:Name="DeleteProfileButton" Grid.Column="2" Classes="icon" ToolTip.Tip="Delete selected list server profile"
+                  AutomationProperties.Name="Delete selected list server profile">
+            <PathIcon Data="{x:Static local:Icons.Delete}" />
+          </Button>
+          <Button x:Name="MoveUpButton" Grid.Column="3" Classes="icon" ToolTip.Tip="Move the profile up" AutomationProperties.Name="Move the profile up">
+            <PathIcon Data="{x:Static local:Icons.Up}" />
+          </Button>
+          <Button x:Name="MoveDownButton" Grid.Column="4" Classes="icon" ToolTip.Tip="Move the profile down" AutomationProperties.Name="Move the profile down">
+            <PathIcon Data="{x:Static local:Icons.Down}" />
+          </Button>
+        </Grid>
+        <TextBlock Grid.Row="2" Text="Name:" VerticalAlignment="Center" />
+        <TextBox x:Name="NameField" Grid.Row="2" Grid.Column="1" />
+        <TextBlock Grid.Row="3" Text="Host:" VerticalAlignment="Center" />
+        <TextBox x:Name="HostField" Grid.Row="3" Grid.Column="1" />
+        <TextBlock Grid.Row="4" Text="Port:" VerticalAlignment="Center" />
+        <TextBox x:Name="PortField" Grid.Row="4" Grid.Column="1" />
+        <TextBlock x:Name="StatusText" Grid.Row="5" Grid.ColumnSpan="2" TextWrapping="Wrap" />
+      </Grid>
+    </HeaderedContentControl>
+  </DockPanel>
+</rc:RcWindow>

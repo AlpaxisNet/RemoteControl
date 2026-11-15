@@ -1,0 +1,55 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Scripts"
+             x:Class="RemoteControl.Ui.Scripts.NpcListWindow"
+             Title="NPCs" Width="520" Height="360" MinWidth="320" MinHeight="200">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="5">
+      <Button x:Name="RefreshButton" Content="Refresh" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="AddButton" Content="Add" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="DeleteButton" Content="Delete" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="CloseButton" Content="Close" MinWidth="76" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <Border Margin="5" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" CornerRadius="4" Padding="5">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text=" NPCs " FontWeight="SemiBold" Margin="0,0,0,4" />
+        <Grid x:Name="Header" DockPanel.Dock="Top" ColumnDefinitions="60,180,120,*" Margin="6,0,0,2">
+          <Button x:Name="SortId" Grid.Column="0" Content="ID" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,2" />
+          <Button x:Name="SortName" Grid.Column="1" Content="Name" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,2" />
+          <Button x:Name="SortType" Grid.Column="2" Content="Type" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,2" />
+          <Button x:Name="SortLevel" Grid.Column="3" Content="Level" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,2" />
+        </Grid>
+        <Panel>
+          <ListBox x:Name="NpcList" SelectionMode="Single">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:NpcRow">
+                <Grid ColumnDefinitions="60,180,120,*">
+                  <TextBlock Grid.Column="0" Text="{Binding Id}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                  <TextBlock Grid.Column="2" Text="{Binding Type}" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                  <TextBlock Grid.Column="3" Text="{Binding Level}" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.ContextMenu>
+              <ContextMenu x:Name="NpcMenu">
+                <MenuItem x:Name="EditScriptItem" Header="Edit Script" />
+                <MenuItem x:Name="EditFlagsItem" Header="Edit Flags" />
+                <MenuItem x:Name="ViewAttributesItem" Header="View Attributes" />
+                <Separator />
+                <MenuItem x:Name="ResetItem" Header="Reset" />
+                <MenuItem x:Name="DeleteItem" Header="Delete" />
+                <Separator />
+                <MenuItem x:Name="WarpItem" Header="Warp" />
+              </ContextMenu>
+            </ListBox.ContextMenu>
+          </ListBox>
+          <TextBlock x:Name="NotConnectedText" IsVisible="False" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     TextAlignment="Center" Margin="20" Foreground="{DynamicResource RcAlertBrush}"
+                     Text="Not connected to the NPC-Control (NC). The list is shown when the NC connects." />
+        </Panel>
+      </DockPanel>
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

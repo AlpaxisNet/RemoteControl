@@ -1,0 +1,77 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Start"
+             x:Class="RemoteControl.Ui.Start.LoginWindow"
+             Title="RemoteControl"
+             Width="264" SizeToContent="Height" CanResize="False"
+             WindowStartupLocation="CenterScreen"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Start/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <!-- The C++ test: the natural width stays at most 340 (the entries are 8 characters wide there). -->
+  <DockPanel x:Name="Root" MaxWidth="330">
+    <Grid DockPanel.Dock="Bottom" Margin="5" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="5">
+      <Button x:Name="ListServerSettingsButton" Grid.Column="0" Classes="icon" Width="42" ToolTip.Tip="List server settings"
+              AutomationProperties.Name="List server settings">
+        <PathIcon Data="{x:Static local:Icons.Gear}" />
+      </Button>
+      <Button x:Name="OkButton" Grid.Column="2" IsDefault="True" Classes="accent">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Ok}" Foreground="{Binding $parent[Button].Foreground}" />
+          <TextBlock Text="OK" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="CloseButton" Grid.Column="3">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Close}" />
+          <TextBlock Text="Close" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <HeaderedContentControl Classes="frame" Header="Options" Margin="5,0,5,0">
+      <StackPanel Spacing="3">
+        <Grid ColumnDefinitions="80,*" ColumnSpacing="3">
+          <TextBlock Text="Nickname:" VerticalAlignment="Center" />
+          <TextBox x:Name="NicknameField" Grid.Column="1" />
+        </Grid>
+        <Grid ColumnDefinitions="80,*" ColumnSpacing="3">
+          <TextBlock Text="Account:" VerticalAlignment="Center" />
+          <TextBox x:Name="AccountField" Grid.Column="1">
+            <TextBox.InnerRightContent>
+              <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                <Button x:Name="ManageAccountsButton" Classes="flat" ToolTip.Tip="Manage accounts" AutomationProperties.Name="Manage accounts" Focusable="True">
+                  <PathIcon Data="{x:Static local:Icons.Pencil}" Width="12" Height="12" />
+                </Button>
+                <Button x:Name="AccountDropButton" Classes="flat" ToolTip.Tip="Saved accounts" AutomationProperties.Name="Saved accounts">
+                  <PathIcon Data="{x:Static local:Icons.Down}" Width="14" Height="14" />
+                  <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedRight">
+                      <ListBox x:Name="AccountList" MaxHeight="260" MinWidth="200" MaxWidth="320">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="local:AccountRow">
+                            <StackPanel Orientation="Horizontal" Spacing="6" ToolTip.Tip="{Binding Detail}">
+                              <TextBlock Text="{Binding Name}" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                              <TextBlock Text="{Binding BadgeText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" Classes="dim" />
+                            </StackPanel>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </Flyout>
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+            </TextBox.InnerRightContent>
+          </TextBox>
+        </Grid>
+        <Grid ColumnDefinitions="80,*" ColumnSpacing="3">
+          <TextBlock Text="Password:" VerticalAlignment="Center" />
+          <TextBox x:Name="PasswordField" Grid.Column="1" PasswordChar="●" />
+        </Grid>
+        <CheckBox x:Name="DontSavePasswordCheck" Content="Don't save password" />
+        <CheckBox x:Name="GraphicalMenuCheck" Content="Graphical Menu" />
+      </StackPanel>
+    </HeaderedContentControl>
+  </DockPanel>
+</rc:RcWindow>

@@ -1,0 +1,48 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Extensions.ExtensionDetailsWindow"
+             Title="Extension"
+             Width="480" Height="460" MinWidth="360" MinHeight="260"
+             WindowStartupLocation="CenterOwner"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="26" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,6,0,2" />
+    </Style>
+    <Style Selector="SelectableTextBlock">
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+      <Button x:Name="OpenButton" Grid.Column="0" Content="Open" ToolTip.Tip="Open extension folder or entry" />
+      <Button x:Name="CloseButton" Grid.Column="2" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+    </Grid>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="2" Margin="0,0,6,0">
+        <SelectableTextBlock x:Name="SummaryText" />
+        <TextBlock Classes="section" Text="Requested capabilities" />
+        <Border BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" Padding="6,4">
+          <StackPanel>
+            <StackPanel x:Name="CapabilityList" Spacing="0" />
+            <TextBlock x:Name="NoCapabilities" Text="None declared" Opacity="0.75" />
+            <TextBlock x:Name="CapabilityNote" Margin="0,4,0,0" Opacity="0.75" FontSize="11" TextWrapping="Wrap"
+                       Text="Approvals are saved at once. Remote Control records them but does not enforce them." />
+          </StackPanel>
+        </Border>
+        <TextBlock Classes="section" Text="Contributions" />
+        <SelectableTextBlock x:Name="ContributionsText" />
+        <TextBlock Classes="section" Text="Window actions" />
+        <SelectableTextBlock x:Name="ActionsText" />
+        <TextBlock x:Name="ErrorTitle" Classes="section" Text="Error" Foreground="{DynamicResource RcAlertBrush}" />
+        <SelectableTextBlock x:Name="ErrorText" Foreground="{DynamicResource RcAlertBrush}" />
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</rc:RcWindow>

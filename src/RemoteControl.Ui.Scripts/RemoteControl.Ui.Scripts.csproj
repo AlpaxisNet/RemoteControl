@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The script editor, the weapon, class, NPC and level lists, the server text editors, the external editor. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Scripts</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteControl.Scripting\RemoteControl.Scripting.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Scripts.Tests" />
+  </ItemGroup>
+</Project>

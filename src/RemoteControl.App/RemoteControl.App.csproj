@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The program (RemoteControl): start-up, composition of every group of windows, tray icon, global hotkey, MCP bridge, crash handling. -->
+  <PropertyGroup>
+    <!-- WinExe: no console window opens on Windows (`debug` attaches to the parent console instead). -->
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>RemoteControl</AssemblyName>
+    <RootNamespace>RemoteControl.App</RootNamespace>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>..\..\assets\RemoteControl.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Avalonia XAML and the groups of windows use reflection: never trim. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishAot>false</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishSingleFile>false</PublishSingleFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteControl.Extensions\RemoteControl.Extensions.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Start\RemoteControl.Ui.Start.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Session\RemoteControl.Ui.Session.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Players\RemoteControl.Ui.Players.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Scripts\RemoteControl.Ui.Scripts.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Files\RemoteControl.Ui.Files.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Extensions\RemoteControl.Ui.Extensions.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.App.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The pictures, sounds, fonts, language files and default options the program ships with, beside the executable:
+         images/, sounds/, fonts/, language-specs/, control2config.txt (built and published alike). -->
+    <Content Include="..\..\assets\runtime\**\*" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

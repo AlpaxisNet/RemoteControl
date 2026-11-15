@@ -1,0 +1,56 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Start"
+             x:Class="RemoteControl.Ui.Start.AccountEditWindow"
+             Title="Add Account"
+             Width="292" SizeToContent="Height" CanResize="False"
+             WindowStartupLocation="CenterOwner"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Start/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <!-- The C++ test: the natural width stays at most 320. -->
+  <DockPanel x:Name="Root" MaxWidth="316">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" Margin="8">
+      <Button x:Name="CloseButton">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Close}" />
+          <TextBlock Text="Close" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="SaveButton" Classes="accent" IsDefault="True">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Save}" Foreground="{Binding $parent[Button].Foreground}" />
+          <TextBlock Text="Save" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </StackPanel>
+    <StackPanel Margin="8,8,8,0" Spacing="4">
+      <TextBlock Text="Account name" />
+      <TextBox x:Name="NameField" />
+      <TextBlock Text="Password" />
+      <TextBox x:Name="PasswordField" PasswordChar="●" />
+      <WrapPanel Orientation="Horizontal">
+        <CheckBox x:Name="DontSavePasswordCheck" Content="Don't save password" Margin="0,0,8,0" />
+        <CheckBox x:Name="DirectModeCheck" Content="Direct Mode" />
+      </WrapPanel>
+      <TextBlock Text="List server" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
+        <ComboBox x:Name="ListServerCombo" HorizontalAlignment="Stretch" ToolTip.Tip="Choose the saved list-server profile of this account"
+                  AutomationProperties.Name="Associated list-server profile">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="local:ProfileChoice">
+              <TextBlock Text="{Binding Text}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Value}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button x:Name="ManageListServersButton" Grid.Column="1" Classes="flat" ToolTip.Tip="Manage saved list servers"
+                AutomationProperties.Name="Manage saved list servers">
+          <PathIcon Data="{x:Static local:Icons.Pencil}" Width="12" Height="12" />
+        </Button>
+      </Grid>
+      <TextBlock x:Name="StatusText" Classes="error" TextWrapping="Wrap" IsVisible="False" />
+    </StackPanel>
+  </DockPanel>
+</rc:RcWindow>

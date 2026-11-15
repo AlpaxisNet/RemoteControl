@@ -1,0 +1,55 @@
+# Builds and tests every push and pull request on Linux and Windows, and keeps the packages of the build as artifacts.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        run: dotnet build RemoteControl.sln -c Release
+      - name: Test
+        run: dotnet test RemoteControl.sln -c Release --no-build
+      - name: Package
+        run: scripts/publish.sh linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemoteControl-linux-x64
+          path: publish/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        run: dotnet build RemoteControl.sln -c Release
+      - name: Test
+        run: dotnet test RemoteControl.sln -c Release --no-build
+      - name: Package
+        shell: pwsh
+        run: ./scripts/publish.ps1 win-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RemoteControl-win-x64
+          path: publish/*.zip
+          if-no-files-found: error

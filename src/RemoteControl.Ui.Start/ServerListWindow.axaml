@@ -1,0 +1,90 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Start"
+             x:Class="RemoteControl.Ui.Start.ServerListWindow"
+             Title="Servers"
+             Width="520" Height="350" MinWidth="400" MinHeight="260"
+             WindowStartupLocation="CenterScreen"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Start/Compact.axaml" />
+    <Style Selector="Button.column">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <Grid DockPanel.Dock="Bottom" Margin="5" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="5">
+      <Button x:Name="SettingsButton" Grid.Column="0" Classes="icon" Width="42" ToolTip.Tip="List server settings" AutomationProperties.Name="List server settings">
+        <PathIcon Data="{x:Static local:Icons.Gear}" />
+      </Button>
+      <Button x:Name="DirectButton" Grid.Column="1" Content="Direct…" ToolTip.Tip="Connect directly to an RC server by host and port" />
+      <Button x:Name="RefreshButton" Grid.Column="3">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Refresh}" />
+          <TextBlock Text="Refresh" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="ConnectButton" Grid.Column="4" Classes="accent" IsDefault="True">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Connect}" Foreground="{Binding $parent[Button].Foreground}" />
+          <TextBlock Text="Connect" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <HeaderedContentControl Classes="frame" Header="Servers" Margin="5,0,5,0">
+      <Grid ColumnDefinitions="260,5,*">
+        <Border BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="24,*,70" Background="{DynamicResource RcSurfaceBrush}">
+              <Button x:Name="SortByNameButton" Grid.Column="1" Classes="column" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Content="Server" />
+              <Button x:Name="SortByPlayersButton" Grid.Column="2" Classes="column" HorizontalAlignment="Stretch" HorizontalContentAlignment="Right" Content="Players" />
+            </Grid>
+            <Panel>
+              <ListBox x:Name="ServerListField" Background="Transparent">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="local:ServerRow">
+                    <Grid ColumnDefinitions="24,*,62" Background="Transparent">
+                      <Image Source="{Binding Icon}" Width="16" Height="16" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding PlayersText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <TextBlock x:Name="EmptyText" Classes="dim" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="8"
+                         TextAlignment="Center" IsVisible="False" />
+            </Panel>
+          </DockPanel>
+        </Border>
+        <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+        <HeaderedContentControl Grid.Column="2" Classes="frame" Header="Server info" Margin="0,-8,0,0">
+          <DockPanel>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="80,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="3">
+              <TextBlock Text="Language:" VerticalAlignment="Center" />
+              <TextBox x:Name="LanguageField" Grid.Column="1" IsReadOnly="True" />
+              <TextBlock Grid.Row="1" Text="Version:" VerticalAlignment="Center" />
+              <TextBox x:Name="VersionField" Grid.Row="1" Grid.Column="1" IsReadOnly="True" />
+              <TextBlock Grid.Row="2" Text="Description:" Margin="0,3,0,0" />
+            </Grid>
+            <StackPanel DockPanel.Dock="Bottom" Spacing="3" Margin="0,3,0,0">
+              <Grid ColumnDefinitions="80,*,Auto" ColumnSpacing="3">
+                <TextBlock Text="Homepage:" VerticalAlignment="Center" />
+                <TextBox x:Name="HomepageField" Grid.Column="1" IsReadOnly="True" />
+                <Button x:Name="HomepageButton" Grid.Column="2" Content="&gt;" Width="24" Padding="0" HorizontalContentAlignment="Center"
+                        ToolTip.Tip="Open the homepage" AutomationProperties.Name="Open the homepage" />
+              </Grid>
+              <TextBlock x:Name="StatusText" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <TextBox x:Name="DescriptionField" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+          </DockPanel>
+        </HeaderedContentControl>
+      </Grid>
+    </HeaderedContentControl>
+  </DockPanel>
+</rc:RcWindow>

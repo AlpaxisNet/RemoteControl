@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  INI highlighting (NPC flags, server options/flags, folder configuration, .ini/.conf files), translated from
+  assets/runtime/language-specs/ini.lang (GtkSourceView v1).
+  Colour names map to the style names of the language file and the style schemes:
+    Comment3 = "Comment 3", Comment2 = "Comment 2", DataType = "Data Type", Decimal = "Decimal",
+    Preprocessor = "Preprocessor", String = "String", FloatingPoint = "Floating Point".
+  The colours below are the defaults of the graalcolors scheme; a theme replaces them by name (SyntaxTheme).
+  Note: AvaloniaEdit matches rules on the stretch of a line that no span covers, so '^' in a rule also matches right after
+  a string or comment span that ends inside the line.
+-->
+<SyntaxDefinition name="Ini" extensions=".ini;.conf" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="Comment3" foreground="#A6E22B" exampleText="; comment" />
+  <Color name="Comment2" foreground="#AE81FF" fontWeight="bold" exampleText="[group]" />
+  <Color name="DataType" foreground="#66D9EF" exampleText="key" />
+  <Color name="Decimal" foreground="#BE84FF" exampleText="42" />
+  <Color name="Preprocessor" foreground="#66D9EF" exampleText="true" />
+  <Color name="String" foreground="#E6DB74" exampleText="&quot;text&quot;" />
+  <Color name="FloatingPoint" foreground="#BE84FF" exampleText="1.5" />
+
+  <RuleSet ignoreCase="false">
+    <!-- Line Comment -->
+    <Span color="Comment3" multiline="false">
+      <Begin>;</Begin>
+    </Span>
+    <!-- Line Comment 2 -->
+    <Span color="Comment3" multiline="false">
+      <Begin>\#</Begin>
+    </Span>
+    <!-- Group -->
+    <Span color="Comment2" multiline="false">
+      <Begin>^\[</Begin>
+      <End>\]$</End>
+    </Span>
+    <!-- Single Quote String -->
+    <Span color="String" multiline="true">
+      <Begin>'</Begin>
+      <End>'</End>
+    </Span>
+    <!-- Double Quote String -->
+    <Span color="String" multiline="true">
+      <Begin>"</Begin>
+      <End>"</End>
+    </Span>
+
+    <!-- Non Standard Key -->
+    <Rule color="DataType">^_?X\-[a-zA-Z\-]+</Rule>
+    <!-- Language -->
+    <Rule color="Decimal">\[[a-zA-Z_]+\]</Rule>
+    <!-- Variable -->
+    <Rule color="DataType">^[a-zA-Z_][a-zA-Z0-9_.]*</Rule>
+    <!-- Boolean Value (case-insensitive) -->
+    <Rule color="Preprocessor">(?i)\b(?:true|false|on|off|yes|no)\b</Rule>
+    <!-- Integer -->
+    <Rule color="Decimal">\b[0-9]+\b</Rule>
+    <!-- Decimal Number -->
+    <Rule color="FloatingPoint">(\b[0-9]+(\.[0-9]+)?|\.[0-9]+)([Ee][\+-]?[0-9]+)?\b</Rule>
+  </RuleSet>
+</SyntaxDefinition>

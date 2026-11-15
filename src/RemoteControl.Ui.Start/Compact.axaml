@@ -1,0 +1,64 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The dense layout of the C++ start windows: the Fluent defaults are too tall and too wide for the C++ window sizes. -->
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="MinWidth" Value="40" />
+    <Setter Property="Padding" Value="6,3" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="MinWidth" Value="40" />
+    <Setter Property="Padding" Value="8,2,0,2" />
+  </Style>
+  <Style Selector="CheckBox">
+    <Setter Property="MinHeight" Value="24" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="MinHeight" Value="26" />
+  </Style>
+  <Style Selector="Button.icon">
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.flat">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="MinHeight" Value="20" />
+    <Setter Property="MinWidth" Value="20" />
+  </Style>
+  <Style Selector="PathIcon">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource RcTextBrush}" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="6,3" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="TextBlock.dim">
+    <Setter Property="Opacity" Value="0.7" />
+  </Style>
+  <Style Selector="TextBlock.error">
+    <Setter Property="Foreground" Value="{DynamicResource RcAlertBrush}" />
+  </Style>
+  <!-- The GTK frame: a border with its caption on the top line (" Options ", " Servers ", " Server info "). -->
+  <Style Selector="HeaderedContentControl.frame">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid>
+          <Border Margin="0,8,0,0" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+            <ContentPresenter Name="PART_ContentPresenter" Margin="0,6,0,0" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" />
+          </Border>
+          <ContentPresenter Name="PART_HeaderPresenter" Margin="8,0,0,0" Padding="2,0" HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Background="{DynamicResource RcBackgroundBrush}" Content="{TemplateBinding Header}" />
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+    <Setter Property="Padding" Value="5" />
+  </Style>
+</Styles>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The player list, private messages, the account, rights, attributes and ban dialogs, the accounts windows. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Players</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- The PM history and ban history viewers are read-only AvaloniaEdit views with its search panel (Ctrl+F). -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Players.Tests" />
+  </ItemGroup>
+</Project>

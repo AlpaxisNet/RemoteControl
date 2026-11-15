@@ -1,0 +1,29 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.AccountsListWindow"
+             Width="450" Height="320" MinWidth="300" MinHeight="200">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="5">
+      <Button x:Name="GetAccountsButton" Content="Get Accounts" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="AddButton" Content="Add" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="CloseButton" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <HeaderedContentControl Margin="5" Header=" Accounts ">
+      <HeaderedContentControl.Template>
+        <ControlTemplate>
+          <Border BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" CornerRadius="4" Padding="5">
+            <DockPanel>
+              <ContentPresenter DockPanel.Dock="Top" Content="{TemplateBinding Header}" FontWeight="SemiBold" Margin="0,0,0,4" />
+              <ContentPresenter Content="{TemplateBinding Content}" />
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </HeaderedContentControl.Template>
+      <ListBox x:Name="AccountList" SelectionMode="Single" />
+    </HeaderedContentControl>
+  </DockPanel>
+</rc:RcWindow>

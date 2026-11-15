@@ -1,0 +1,17 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.TextInputWindow"
+             SizeToContent="Height" Width="390" CanResize="False" WindowStartupLocation="CenterOwner">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,8,0,0">
+      <Button x:Name="CancelButton" Content="Cancel" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="AcceptButton" Content="Send" MinWidth="80" HorizontalContentAlignment="Center" Classes="accent" />
+    </StackPanel>
+    <TextBlock x:Name="Label" DockPanel.Dock="Top" Margin="0,0,0,5" Text="Message:" />
+    <TextBox x:Name="Input" TextWrapping="Wrap" />
+  </DockPanel>
+</rc:RcWindow>

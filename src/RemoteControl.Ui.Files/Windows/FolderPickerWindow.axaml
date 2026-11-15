@@ -1,0 +1,33 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Files"
+             x:Class="RemoteControl.Ui.Files.FolderPickerWindow"
+             Title="Select server folders" Width="430" Height="380" MinWidth="320" MinHeight="240">
+  <rc:RcWindow.Styles>
+    <Style Selector="TreeView#FolderTree TreeViewItem" x:DataType="local:PickerNode">
+      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+      <Setter Property="MinHeight" Value="24" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,8,0,0">
+      <Button x:Name="CloseButton" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="ApplyButton" Content="Apply" MinWidth="80" HorizontalContentAlignment="Center" IsEnabled="False" />
+    </StackPanel>
+    <TextBlock DockPanel.Dock="Top" Text="Expand the server folder tree and choose folders to synchronize." TextWrapping="Wrap" Margin="0,0,0,6" />
+    <TextBlock x:Name="StateText" DockPanel.Dock="Top" Text="Loading..." Foreground="{DynamicResource RcDisabledTextBrush}" Margin="0,0,0,6" />
+    <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1" Background="{DynamicResource RcEditorBrush}">
+      <TreeView x:Name="FolderTree" Background="Transparent">
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate x:DataType="local:PickerNode" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" IsVisible="{Binding !IsPlaceholder}" MinWidth="0" Padding="4,0" />
+              <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+            </StackPanel>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

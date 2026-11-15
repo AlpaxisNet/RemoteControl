@@ -1,0 +1,17 @@
+<common:RcWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:common="using:RemoteControl.Ui.Common"
+                 x:Class="RemoteControl.Ui.Session.DebugInfoWindow"
+                 Title="Debug Information"
+                 Width="560" Height="520" MinWidth="360" MinHeight="300"
+                 Background="{DynamicResource RcBackgroundBrush}">
+  <DockPanel Margin="8">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+      <Button Name="RefreshButton" Content="Refresh (F1)" />
+      <Button Name="CopyButton" Content="Copy to Clipboard" />
+      <Button Name="CloseButton" Content="Close (Esc)" />
+    </StackPanel>
+    <TextBlock Name="StatusLabel" DockPanel.Dock="Bottom" Margin="0,6,0,0" Text="Press F1 to refresh stats, Esc to close." Foreground="{DynamicResource RcTextBrush}" />
+    <Border Name="TextHost" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" />
+  </DockPanel>
+</common:RcWindow>

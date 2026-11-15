@@ -1,0 +1,17 @@
+<common:RcWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:common="using:RemoteControl.Ui.Common"
+                 x:Class="RemoteControl.Ui.Session.ToallsWindow"
+                 Title="Toalls"
+                 Width="360" Height="240" MinWidth="260" MinHeight="160"
+                 Background="{DynamicResource RcBackgroundBrush}">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="5">
+      <Button Name="CloseButton" Content="Close" HorizontalAlignment="Right" MinWidth="80" />
+    </Border>
+    <TextBox Name="ToallEntry" DockPanel.Dock="Bottom" AcceptsReturn="False" MinHeight="26" Padding="5,3" CornerRadius="0" />
+    <Border BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}">
+      <common:ChatView Name="ToallChat" />
+    </Border>
+  </DockPanel>
+</common:RcWindow>

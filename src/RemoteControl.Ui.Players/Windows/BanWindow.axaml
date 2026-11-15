@@ -1,0 +1,17 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.BanWindow"
+             Title="Edit Access" Width="500" Height="240" MinWidth="420" MaxWidth="600" MinHeight="220">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="5">
+      <Button x:Name="HistoryButton" Content="Ban History" />
+      <Button x:Name="ActivityButton" Content="Staff Activity" />
+      <Button x:Name="CloseButton" Content="Close" MinWidth="70" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <TabControl x:Name="Scopes" Margin="5" Padding="0" />
+  </DockPanel>
+</rc:RcWindow>

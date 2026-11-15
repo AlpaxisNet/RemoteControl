@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The file browser and the sync window. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Files</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <ProjectReference Include="..\RemoteControl.Sync\RemoteControl.Sync.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Files.Tests" />
+  </ItemGroup>
+</Project>

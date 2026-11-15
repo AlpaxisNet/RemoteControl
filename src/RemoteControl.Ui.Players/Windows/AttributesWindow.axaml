@@ -1,0 +1,47 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.AttributesWindow"
+             Width="400" MinWidth="400" MaxWidth="400" Height="360" MinHeight="300">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" Margin="5">
+      <Button x:Name="ApplyButton" Content="Apply" MinWidth="80" HorizontalContentAlignment="Center" Classes="accent" />
+      <Button x:Name="CloseButton" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <TabControl x:Name="Tabs" Margin="5" Padding="0">
+      <TabItem Header="Stats" FontSize="12" Padding="5,2">
+        <ScrollViewer><Grid x:Name="StatsGrid" ColumnDefinitions="*,190" Margin="5" RowSpacing="2" ColumnSpacing="6" /></ScrollViewer>
+      </TabItem>
+      <TabItem Header="Look" FontSize="12" Padding="5,2">
+        <ScrollViewer><Grid x:Name="LookGrid" ColumnDefinitions="*,190" Margin="5" RowSpacing="2" ColumnSpacing="6" /></ScrollViewer>
+      </TabItem>
+      <TabItem Header="Basic Attributes" FontSize="12" Padding="5,2">
+        <ScrollViewer>
+          <StackPanel Margin="5" Spacing="4">
+            <Grid x:Name="BasicGrid" ColumnDefinitions="Auto,*,Auto,*" RowSpacing="2" ColumnSpacing="6" />
+            <WrapPanel>
+              <CheckBox x:Name="MaleCheck" Content="male" Margin="0,0,8,0" />
+              <CheckBox x:Name="WeaponsCheck" Content="weapons enabled" Margin="0,0,8,0" />
+              <CheckBox x:Name="SpinCheck" Content="spin attack" />
+            </WrapPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Chests" FontSize="12" Padding="5,2">
+        <DockPanel Margin="5">
+          <TextBlock DockPanel.Dock="Top" Text="Open chests:" Margin="5,0,0,3" />
+          <ListBox x:Name="ChestList" SelectionMode="Multiple" />
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Weapons" FontSize="12" Padding="5,2">
+        <TextBox x:Name="WeaponsBox" Margin="5" AcceptsReturn="True" TextWrapping="NoWrap" VerticalContentAlignment="Top" />
+      </TabItem>
+      <TabItem Header="Script Flags" FontSize="12" Padding="5,2">
+        <TextBox x:Name="FlagsBox" Margin="5" AcceptsReturn="True" TextWrapping="NoWrap" VerticalContentAlignment="Top" />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</rc:RcWindow>

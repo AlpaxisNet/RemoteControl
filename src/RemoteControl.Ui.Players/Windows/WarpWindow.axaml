@@ -1,0 +1,24 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.WarpWindow"
+             Title="Warp Player" SizeToContent="Height" Width="300" CanResize="False" WindowStartupLocation="CenterOwner">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <StackPanel Margin="8" Spacing="5">
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="5" ColumnSpacing="6">
+      <TextBlock Grid.Row="0" Text="Level:" VerticalAlignment="Center" />
+      <TextBox x:Name="LevelBox" Grid.Row="0" Grid.Column="1" />
+      <TextBlock Grid.Row="1" Text="X:" VerticalAlignment="Center" />
+      <TextBox x:Name="XBox" Grid.Row="1" Grid.Column="1" Text="0" />
+      <TextBlock Grid.Row="2" Text="Y:" VerticalAlignment="Center" />
+      <TextBox x:Name="YBox" Grid.Row="2" Grid.Column="1" Text="0" />
+    </Grid>
+    <TextBlock x:Name="ErrorText" TextWrapping="Wrap" IsVisible="False" Foreground="{DynamicResource RcAlertBrush}" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="0,4,0,0">
+      <Button x:Name="CancelButton" Content="Cancel" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="WarpButton" Content="Warp" MinWidth="80" HorizontalContentAlignment="Center" Classes="accent" />
+    </StackPanel>
+  </StackPanel>
+</rc:RcWindow>

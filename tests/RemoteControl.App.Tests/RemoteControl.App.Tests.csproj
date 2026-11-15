@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The program put together, run without a screen (Avalonia.Headless): start-up, sessions, tray menu, hotkey, MCP host. No tray icon,
+       no key grab, no network: the platform parts are fakes. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>RemoteControl.App.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RemoteControl.App\RemoteControl.App.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.TestKit\RemoteControl.Ui.TestKit.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol.Testing\RemoteControl.Protocol.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The network side: the list server, the RC and NC connections of a game server, and the texts they exchange. No user interface. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Protocol</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SharpZipLib" />
+    <InternalsVisibleTo Include="RemoteControl.Protocol.Tests" />
+    <InternalsVisibleTo Include="RemoteControl.Protocol.Testing" />
+  </ItemGroup>
+</Project>

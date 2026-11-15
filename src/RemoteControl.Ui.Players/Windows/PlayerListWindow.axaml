@@ -1,0 +1,51 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.PlayerListWindow"
+             Title="Player List" Width="580" Height="420" MinWidth="380" MinHeight="220">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+    <Style Selector="ListBox.rows ListBoxItem">
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBox.rows">
+      <Setter Property="Background" Value="{DynamicResource RcEditorBrush}" />
+    </Style>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <DockPanel DockPanel.Dock="Bottom" Margin="4,2,4,4">
+      <TextBlock DockPanel.Dock="Left" Text="Status:" VerticalAlignment="Center" Margin="5,0" />
+      <ComboBox x:Name="StatusCombo" DockPanel.Dock="Left" SelectedIndex="0" MinWidth="96" VerticalAlignment="Center">
+        <ComboBoxItem Content="Online" />
+        <ComboBoxItem Content="Away" />
+        <ComboBoxItem Content="Offline" />
+      </ComboBox>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+        <Button x:Name="RefreshButton" Content="Refresh" />
+        <Button x:Name="MassPmButton" Content="Mass PM" />
+        <Button x:Name="AdminMessageButton" Content="Admin Message" />
+        <Button x:Name="CloseButton" Content="Close" />
+      </StackPanel>
+    </DockPanel>
+    <TabControl x:Name="Tabs" Margin="5" Padding="0,4,0,0">
+      <TabItem x:Name="ThisServerTab" Header="This server">
+        <Border x:Name="PlayersHost" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" />
+      </TabItem>
+      <TabItem x:Name="GuildsTab" Header="Guilds">
+        <Border x:Name="GuildsHost" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" />
+      </TabItem>
+      <TabItem x:Name="ServersTab" Header="Servers">
+        <Border x:Name="ServersHost" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" />
+      </TabItem>
+      <TabItem x:Name="ChannelsTab" Header="Channels">
+        <Border x:Name="ChannelsHost" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</rc:RcWindow>

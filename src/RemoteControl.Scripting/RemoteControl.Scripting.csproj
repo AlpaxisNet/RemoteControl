@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The script language without a window: checking, formatting, completion data, find and replace, highlighting definitions. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Scripting</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteControl.Scripting.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Highlighting\Graal.xshd" LogicalName="RemoteControl.Scripting.Highlighting.Graal.xshd" />
+    <EmbeddedResource Include="Highlighting\Ini.xshd" LogicalName="RemoteControl.Scripting.Highlighting.Ini.xshd" />
+  </ItemGroup>
+</Project>

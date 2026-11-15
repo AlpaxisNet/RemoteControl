@@ -1,0 +1,71 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Start"
+             x:Class="RemoteControl.Ui.Start.AccountsWindow"
+             Title="Accounts"
+             Width="500" Height="330" MinWidth="360" MinHeight="220"
+             WindowStartupLocation="CenterOwner"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Start/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <TextBlock DockPanel.Dock="Top" Text="Select an account to sign in" FontWeight="Bold" Margin="10" />
+    <Border x:Name="AttentionPanel" DockPanel.Dock="Top" IsVisible="False" Margin="10,0,10,8" Padding="8" CornerRadius="3"
+            BorderThickness="1" BorderBrush="{DynamicResource RcAlertBrush}" Background="{DynamicResource RcSurfaceBrush}">
+      <DockPanel>
+        <Button x:Name="StartFreshButton" DockPanel.Dock="Right" Content="Start fresh…" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <TextBlock x:Name="AttentionText" TextWrapping="Wrap" VerticalAlignment="Center" />
+      </DockPanel>
+    </Border>
+    <Grid DockPanel.Dock="Bottom" Margin="10" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="5">
+      <Button x:Name="AddButton" Grid.Column="0">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Add}" />
+          <TextBlock Text="Add Account" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="EditButton" Grid.Column="1">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Pencil}" />
+          <TextBlock Text="Edit" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="DeleteButton" Grid.Column="2">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Delete}" />
+          <TextBlock Text="Delete" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="CloseButton" Grid.Column="4">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Close}" />
+          <TextBlock Text="Close" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+      <Button x:Name="SelectButton" Grid.Column="5" Classes="accent" IsDefault="True">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <PathIcon Data="{x:Static local:Icons.Ok}" Foreground="{Binding $parent[Button].Foreground}" />
+          <TextBlock Text="Select" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
+    </Grid>
+    <Border Margin="10,0,10,0" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}">
+      <Panel>
+        <ListBox x:Name="AccountsList" Background="Transparent">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="local:AccountRow">
+              <StackPanel Margin="4" Spacing="2" ToolTip.Tip="{Binding Detail}">
+                <TextBlock Text="{Binding Name}" FontWeight="Bold" />
+                <TextBlock Text="{Binding Badge}" Classes="dim" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock x:Name="EmptyText" Text="No saved accounts. Add one with Add Account." Classes="dim"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False" />
+      </Panel>
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

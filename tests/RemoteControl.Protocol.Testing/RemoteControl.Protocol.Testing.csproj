@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What tests use in place of real servers: scripted list, game and NC servers on 127.0.0.1, and a session that records what it is asked. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>RemoteControl.Protocol.Testing</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteControl.Protocol.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+  </ItemGroup>
+</Project>

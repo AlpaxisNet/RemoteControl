@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Extension packages and the MCP server, without a window: manifests, saved state, the runtime processes and their JSON-lines protocol, the MCP protocol and transports. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Extensions</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Extensions.Tests" />
+  </ItemGroup>
+</Project>

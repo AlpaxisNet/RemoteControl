@@ -1,0 +1,144 @@
+<common:RcWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:common="using:RemoteControl.Ui.Common"
+                 x:Class="RemoteControl.Ui.Session.MainWindow"
+                 Title="Remote Control"
+                 Width="500" Height="350" MinWidth="320" MinHeight="240"
+                 Background="{DynamicResource RcBackgroundBrush}">
+  <common:RcWindow.Styles>
+    <Style Selector="TabControl#ChatTabs">
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs /template/ ItemsPresenter#PART_ItemsPresenter">
+      <Setter Property="Margin" Value="2,0,0,0" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs TabItem">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="22" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Padding" Value="7,2" />
+      <Setter Property="Margin" Value="0,0,1,0" />
+      <Setter Property="Background" Value="{DynamicResource RcLabelBackBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource RcLabelBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource RcBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1,1,1,0" />
+      <Setter Property="CornerRadius" Value="3,3,0,0" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs TabItem:selected">
+      <Setter Property="Background" Value="{DynamicResource RcChatBackBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource RcChatBrush}" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs TabItem:selected /template/ Border#PART_SelectedPipe">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry">
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="Padding" Value="5,3" />
+      <Setter Property="CornerRadius" Value="0" />
+      <Setter Property="FontFamily" Value="{DynamicResource RcChatFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource RcChatFontSize}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical">
+      <Setter Property="Foreground" Value="{DynamicResource RcEditBrush}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource RcEditBrush}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource RcEditBackBrush}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource RcEditBackBrush}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="{DynamicResource RcEditBackBrush}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical:focus">
+      <Setter Property="Foreground" Value="{DynamicResource RcEditBrush}" />
+    </Style>
+    <Style Selector="TextBox#ChatEntry.graphical:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource RcEditBrush}" />
+    </Style>
+    <Style Selector="Menu#MainMenu">
+      <Setter Property="Background" Value="{DynamicResource RcSurfaceBrush}" />
+    </Style>
+    <Style Selector="Menu#MainMenu > MenuItem">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="Button.link">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource RcChatBoldBrush}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FontFamily" Value="{DynamicResource RcChatFontFamily}" />
+      <Setter Property="FontSize" Value="{DynamicResource RcChatFontSize}" />
+    </Style>
+    <Style Selector="Button.link /template/ ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs TabItem:pointerover /template/ Border#PART_LayoutRoot">
+      <Setter Property="Background" Value="{DynamicResource RcSurfaceBrush}" />
+    </Style>
+    <Style Selector="TabControl#ChatTabs TabItem:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource RcLabelBrush}" />
+    </Style>
+    <Style Selector="ListBox#FindResultsList ListBoxItem">
+      <Setter Property="Padding" Value="5,1" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBox#CompletionList ListBoxItem">
+      <Setter Property="Padding" Value="4,2" />
+      <Setter Property="MinHeight" Value="0" />
+    </Style>
+  </common:RcWindow.Styles>
+
+  <DockPanel Name="Root">
+    <TextBox Name="ChatEntry" DockPanel.Dock="Bottom" AcceptsReturn="False" AcceptsTab="False" />
+    <Menu Name="MainMenu" DockPanel.Dock="Top">
+      <MenuItem Header="Players">
+        <MenuItem Name="MenuPlayerList" Header="Playerlist" />
+        <MenuItem Name="MenuAccounts" Header="Accounts" />
+        <MenuItem Name="MenuToalls" Header="Toalls" />
+      </MenuItem>
+      <MenuItem Header="Files">
+        <MenuItem Name="MenuFileBrowser" Header="File Browser" />
+      </MenuItem>
+      <MenuItem Header="Configuration">
+        <MenuItem Name="MenuRcOptions" Header="RC Options" />
+        <MenuItem Name="MenuServerOptions" Header="Server Options" />
+        <MenuItem Name="MenuFolderConfig" Header="Folder Config" />
+      </MenuItem>
+      <MenuItem Header="Scripts">
+        <MenuItem Name="MenuNpcs" Header="NPCs" />
+        <MenuItem Name="MenuClasses" Header="Classes" />
+        <MenuItem Name="MenuWeapons" Header="Weapons (GUI)" />
+      </MenuItem>
+      <MenuItem Header="Misc">
+        <MenuItem Name="MenuServerFlags" Header="Server Flags" />
+        <MenuItem Name="MenuLocalNpcs" Header="Level-NPC dump" />
+        <MenuItem Name="MenuExtensions" Header="Extensions" />
+        <Separator />
+        <MenuItem Name="MenuServerList" Header="Server List" InputGesture="F8" />
+        <MenuItem Name="MenuSignOut" Header="Sign out" />
+      </MenuItem>
+    </Menu>
+    <Panel Name="LayoutHost">
+      <Panel Name="Header" Height="180" VerticalAlignment="Top" ClipToBounds="True" Background="{DynamicResource RcLabelBackBrush}">
+        <Panel.ContextMenu>
+          <ContextMenu>
+            <MenuItem Name="HeaderServerList" Header="Server List" InputGesture="F8" />
+            <MenuItem Name="HeaderSignOut" Header="Sign out" />
+          </ContextMenu>
+        </Panel.ContextMenu>
+        <common:AnimatedImage Name="HeaderBackground" />
+        <Canvas Name="HeaderCanvas" />
+      </Panel>
+      <TabControl Name="ChatTabs" TabStripPlacement="Top" />
+      <Border Name="CompletionBorder" IsVisible="False" VerticalAlignment="Bottom" HorizontalAlignment="Left"
+              Margin="4,0,4,2" MinWidth="240" MaxWidth="460" MaxHeight="160" CornerRadius="5" BorderThickness="1"
+              BorderBrush="{DynamicResource RcBorderBrush}" Background="{DynamicResource RcSurfaceBrush}">
+        <ListBox Name="CompletionList" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+      </Border>
+    </Panel>
+  </DockPanel>
+</common:RcWindow>

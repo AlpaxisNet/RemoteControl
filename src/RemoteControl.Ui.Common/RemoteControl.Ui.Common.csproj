@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What every window shares: themes, pictures and sounds, controls, dialogs, error handling, the application and session contexts. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Common</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Skia" />
+    <!-- The chat view is a read-only AvaloniaEdit text view: it stays fast with ten thousand lines and selects across lines. -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The bundled font, embedded so that it can be registered without touching the system (see BundledFonts). -->
+    <AvaloniaResource Include="..\..\assets\runtime\fonts\tempus-sans-itc.ttf" Link="Assets\Fonts\tempus-sans-itc.ttf" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Common.Tests" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.TestKit" />
+  </ItemGroup>
+</Project>

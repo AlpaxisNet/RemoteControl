@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The main window of a server session: the header, the chat tabs, the toalls and options windows, the level-NPC dump and the debug information. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Session</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- Read-only INI views of the debug information and the level-NPC dump, the find bar of the chat. -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Ui.Shell\RemoteControl.Ui.Shell.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <!-- /scripthelp2 (the script API definitions) and the INI highlighting definition. -->
+    <ProjectReference Include="..\RemoteControl.Scripting\RemoteControl.Scripting.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Session.Tests" />
+  </ItemGroup>
+</Project>

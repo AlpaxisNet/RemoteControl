@@ -1,0 +1,25 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Scripts.ScriptListWindow"
+             Width="540" Height="460" MinWidth="280" MinHeight="200">
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="5">
+      <Button x:Name="EditButton" Content="Edit" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="AddButton" Content="Add" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="DeleteButton" Content="Delete" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="CloseButton" Content="Close" MinWidth="76" HorizontalContentAlignment="Center" />
+    </StackPanel>
+    <Border Margin="5" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" CornerRadius="4" Padding="5">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text=" Scripts " FontWeight="SemiBold" Margin="0,0,0,4" />
+        <Panel>
+          <ListBox x:Name="ScriptList" SelectionMode="Single" />
+          <TextBlock x:Name="NotConnectedText" IsVisible="False" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     TextAlignment="Center" Margin="20" Foreground="{DynamicResource RcAlertBrush}"
+                     Text="Not connected to the NPC-Control (NC). The list is shown when the NC connects." />
+        </Panel>
+      </DockPanel>
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

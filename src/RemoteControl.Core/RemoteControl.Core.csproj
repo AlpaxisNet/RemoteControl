@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Settings and storage, without a window and without the network: options, saved accounts, list-server profiles, paths, the crash log. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Core</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="RemoteControl.Core.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,23 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Players.PrivateMessageWindow"
+             Width="380" Height="300" MinWidth="240" MinHeight="180">
+  <rc:RcWindow.Styles>
+    <StyleInclude Source="avares://RemoteControl.Ui.Players/Compact.axaml" />
+  </rc:RcWindow.Styles>
+  <DockPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6" Margin="5">
+      <Button x:Name="HistoryButton" Content="History" MinWidth="76" HorizontalContentAlignment="Center" />
+      <Button x:Name="SendButton" Content="Send" MinWidth="76" HorizontalContentAlignment="Center" Classes="accent" />
+    </StackPanel>
+    <Grid RowDefinitions="140,4,*" Margin="5,5,5,0">
+      <Border Grid.Row="0" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}">
+        <rc:ChatView x:Name="Conversation" />
+      </Border>
+      <GridSplitter Grid.Row="1" ResizeDirection="Rows" Background="Transparent" />
+      <TextBox x:Name="Reply" Grid.Row="2" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+               ToolTip.Tip="Enter sends, Ctrl+Enter starts a new line" />
+    </Grid>
+  </DockPanel>
+</rc:RcWindow>

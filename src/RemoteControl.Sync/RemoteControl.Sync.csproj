@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Folder and server synchronisation and git backups, without a window: the manifest, the file formats, the comparison and the transfers. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Sync</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Sync.Tests" />
+  </ItemGroup>
+</Project>

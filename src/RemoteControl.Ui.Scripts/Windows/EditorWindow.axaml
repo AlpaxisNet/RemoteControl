@@ -1,0 +1,39 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Scripts.EditorWindow"
+             Width="700" Height="520" MinWidth="360" MinHeight="220">
+  <DockPanel>
+    <Border x:Name="InfoBar" DockPanel.Dock="Top" IsVisible="False" Padding="8,5" BorderThickness="0,0,0,1"
+            Background="{DynamicResource RcSurfaceBrush}" BorderBrush="{DynamicResource RcBorderBrush}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
+          <Button x:Name="ReloadButton" Content="Reload" />
+          <Button x:Name="KeepButton" Content="Keep mine" />
+        </StackPanel>
+        <TextBlock x:Name="InfoText" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+    <StackPanel x:Name="TopActions" DockPanel.Dock="Top" Orientation="Horizontal" Spacing="4" Margin="4" IsVisible="False" />
+    <DockPanel x:Name="IconRow" DockPanel.Dock="Top" Margin="5" IsVisible="False">
+      <TextBlock DockPanel.Dock="Left" Text="Icon:" VerticalAlignment="Center" Margin="0,0,5,0" />
+      <TextBox x:Name="IconBox" />
+    </DockPanel>
+    <DockPanel DockPanel.Dock="Bottom" Margin="5,3,5,3" LastChildFill="False">
+      <TextBlock x:Name="LineStatus" DockPanel.Dock="Left" Text="Line: 1" VerticalAlignment="Center" Margin="3,0,10,0" />
+      <StackPanel x:Name="Buttons" DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5">
+        <Button x:Name="GoToLineButton" Content="Go to line" ToolTip.Tip="Go to line (Ctrl+G)" />
+        <Button x:Name="FormatButton" Content="Format" />
+        <Button x:Name="FindButton" Content="Find" ToolTip.Tip="Find (Ctrl+F) / right-click Replace (Ctrl+H)" />
+        <Button x:Name="ApplyButton" Content="Apply" />
+        <Button x:Name="CloseButton" Content="Close" />
+      </StackPanel>
+    </DockPanel>
+    <TextBlock x:Name="StatusText" DockPanel.Dock="Bottom" Margin="8,3,8,0" TextWrapping="Wrap" Foreground="{DynamicResource RcAlertBrush}"
+               IsVisible="{Binding $self.Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+    <StackPanel x:Name="BottomActions" DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="4" Margin="4" IsVisible="False" />
+    <Border BorderThickness="0,1" BorderBrush="{DynamicResource RcBorderBrush}">
+      <ContentControl x:Name="EditorHost" />
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

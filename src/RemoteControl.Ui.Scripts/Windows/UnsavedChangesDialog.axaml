@@ -1,0 +1,15 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             x:Class="RemoteControl.Ui.Scripts.UnsavedChangesDialog"
+             Title="Unsaved Changes" Width="430" SizeToContent="Height" CanResize="False"
+             WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="12" Spacing="12">
+    <TextBlock x:Name="MessageText" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+      <Button x:Name="SaveButton" Content="Save" MinWidth="80" HorizontalContentAlignment="Center" IsDefault="True" />
+      <Button x:Name="DiscardButton" Content="Close without saving" HorizontalContentAlignment="Center" />
+      <Button x:Name="CancelButton" Content="Cancel" MinWidth="80" HorizontalContentAlignment="Center" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</rc:RcWindow>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the groups of windows agree on: a server session and its windows, the registry through which one group opens a window of another, and the services they offer each other. -->
+  <PropertyGroup>
+    <RootNamespace>RemoteControl.Ui.Shell</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteControl.Ui.Common\RemoteControl.Ui.Common.csproj" />
+    <ProjectReference Include="..\RemoteControl.Core\RemoteControl.Core.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol\RemoteControl.Protocol.csproj" />
+    <InternalsVisibleTo Include="RemoteControl.Ui.Shell.Tests" />
+  </ItemGroup>
+</Project>

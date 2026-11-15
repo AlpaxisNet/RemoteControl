@@ -1,0 +1,27 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- The dense layout of the C++ dialogs: the Fluent defaults are too tall for the C++ window sizes. -->
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="6,3" />
+  </Style>
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="8,2,0,2" />
+  </Style>
+  <Style Selector="CheckBox">
+    <Setter Property="MinHeight" Value="24" />
+  </Style>
+  <Style Selector="Button">
+    <Setter Property="Padding" Value="10,4" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="6,3" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="TabItem">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="7,2" />
+  </Style>
+</Styles>

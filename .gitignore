@@ -1,0 +1,27 @@
+# Build output
+bin/
+obj/
+publish/
+artifacts/
+TestResults/
+*.binlog
+
+# Editors and IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Pictures the window tests save when RC_TEST_SHOTS names a folder inside the repository
+shots/
+
+# Never commit a user's own files
+accounts.key
+accounts.dat
+selected-account
+*.log

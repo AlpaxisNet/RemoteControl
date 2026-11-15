@@ -1,0 +1,74 @@
+# Publishes a release for every version tag (v1.0.0): the Linux package built on Linux, the Windows package built on Windows.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build and test
+        run: |
+          dotnet build RemoteControl.sln -c Release
+          dotnet test RemoteControl.sln -c Release --no-build
+      - name: Package
+        run: scripts/publish.sh linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: publish/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build
+        run: dotnet build RemoteControl.sln -c Release
+      - name: Package
+        shell: pwsh
+        run: ./scripts/publish.ps1 win-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-x64
+          path: publish/*.zip
+          if-no-files-found: error
+
+  release:
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          {
+            echo "Remote Control $version"
+            echo
+            echo "Unpack the package for your system anywhere and start \`RemoteControl\` (\`RemoteControl.exe\`). Nothing has to be installed."
+            echo
+            echo "- **Windows 10 and 11 (x64):** \`RemoteControl-$version-win-x64.zip\`"
+            echo "- **Linux (x64, X11 or XWayland):** \`RemoteControl-$version-linux-x64.tar.gz\`"
+            echo
+            echo "The built-in list server is Alpaxis; add your own in the list-server settings. See the [README](https://github.com/${GITHUB_REPOSITORY}#readme)."
+          } > notes.md
+          gh release create "$TAG" packages/* --repo "$GITHUB_REPOSITORY" --title "Remote Control $version" --notes-file notes.md --verify-tag

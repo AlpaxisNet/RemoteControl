@@ -1,0 +1,192 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Files"
+             x:Class="RemoteControl.Ui.Files.SyncWindow"
+             Title="Sync &amp; Git Backups (Alpha)" Width="560" Height="560" MinWidth="460" MinHeight="380">
+  <rc:RcWindow.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource RcDisabledTextBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.frame">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="Border.frame">
+      <Setter Property="BorderBrush" Value="{DynamicResource RcBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RcControlCornerRadius}" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Padding" Value="10,2" />
+    </Style>
+    <Style Selector="ListBox#ItemsList ListBoxItem">
+      <Setter Property="Padding" Value="4,3" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <Button x:Name="CloseButton" DockPanel.Dock="Bottom" Content="Close" HorizontalAlignment="Right" MinWidth="80" HorizontalContentAlignment="Center" Margin="0,8,0,0" />
+    <Border x:Name="NoticeBar" DockPanel.Dock="Top" IsVisible="False" Classes="frame" Margin="0,0,0,8" BorderBrush="{DynamicResource RcAccentBrush}">
+      <DockPanel>
+        <Button x:Name="DismissNoticeButton" DockPanel.Dock="Right" Content="OK" VerticalAlignment="Top" Margin="8,0,0,0" />
+        <TextBlock x:Name="NoticeText" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+    <TabControl x:Name="Pages" Padding="0,6,0,0">
+      <TabItem Header="Setup">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="10" Margin="0,0,8,0">
+            <Border Classes="frame">
+              <StackPanel>
+                <TextBlock Classes="frame" Text="Sync status" />
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontFamily="{DynamicResource RcScriptFontFamily}" FontSize="12" />
+              </StackPanel>
+            </Border>
+            <Border Classes="frame">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="frame" Text="Workspace" />
+                <DockPanel>
+                  <Button x:Name="OpenWorkspaceButton" DockPanel.Dock="Right" Content="Open" Margin="6,0,0,0" />
+                  <Button x:Name="ChooseWorkspaceButton" DockPanel.Dock="Right" Content="Choose…" Margin="6,0,0,0" />
+                  <TextBox x:Name="WorkspaceBox" IsReadOnly="True" Watermark="No workspace chosen" />
+                </DockPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="frame">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="frame" Text="Server synchronization" />
+                <TextBlock Classes="hint" Text="Synchronizes scripts, selected server files, and optional server configuration in the selected direction." />
+                <WrapPanel>
+                  <CheckBox x:Name="ScriptSyncBox" Content="Script sync" Margin="0,0,16,0" ToolTip.Tip="Weapons, classes and NPCs" />
+                  <CheckBox x:Name="FileSyncBox" Content="File sync" Margin="0,0,16,0" />
+                  <CheckBox x:Name="ConfigSyncBox" Content="Server configuration" ToolTip.Tip="Server options, server flags and folder configuration" />
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="Direction:" VerticalAlignment="Center" />
+                  <ComboBox x:Name="DirectionCombo" MinWidth="160" SelectedIndex="0">
+                    <ComboBoxItem Content="Download only" />
+                    <ComboBoxItem Content="Upload only" />
+                    <ComboBoxItem Content="Two-way" />
+                  </ComboBox>
+                </StackPanel>
+                <TextBlock Classes="hint" Text="Download only is the safe default. Upload and two-way modes can change server content." />
+                <CheckBox x:Name="AllowDeletesBox" Content="Allow local deletions to delete server content" ToolTip.Tip="Destructive. A tracked local file deletion also deletes the matching server item." />
+                <CheckBox x:Name="AutoStartBox" Content="Start synchronization automatically when connected" />
+                <TextBlock Text="Remote file folders:" />
+                <DockPanel>
+                  <Button x:Name="ChooseFoldersButton" DockPanel.Dock="Right" Content="Choose..." Margin="6,0,0,0" />
+                  <TextBox x:Name="FoldersBox" IsReadOnly="True" Watermark="Leave empty to discover server roots" />
+                </DockPanel>
+                <TextBlock Text="Exclude files:" />
+                <TextBox x:Name="ExcludeBox" Watermark="*.tmp; *.bak; filename.ext" />
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                  <Button x:Name="StartButton" Content="Start" MinWidth="80" HorizontalContentAlignment="Center" />
+                  <Button x:Name="StopButton" Content="Stop" MinWidth="80" HorizontalContentAlignment="Center" />
+                  <Button x:Name="SyncNowButton" Content="Sync now" MinWidth="80" HorizontalContentAlignment="Center" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem x:Name="ItemsTab" Header="Changes">
+        <DockPanel>
+          <TextBlock x:Name="ItemsSummary" DockPanel.Dock="Top" Text="Everything is in sync." TextWrapping="Wrap" Margin="0,0,0,6" />
+          <Border x:Name="PendingBar" DockPanel.Dock="Top" Classes="frame" IsVisible="False" Margin="0,0,0,6">
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="PendingText" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="ConfirmDeletionsButton" Content="Delete on server" />
+                <Button x:Name="DiscardDeletionsButton" Content="Keep server copies" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1" Background="{DynamicResource RcEditorBrush}">
+            <ListBox x:Name="ItemsList" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:SyncItemRow">
+                  <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" IsVisible="{Binding IsConflict}">
+                      <Button Content="Keep local" Command="{Binding KeepLocal}" Padding="6,2" />
+                      <Button Content="Take server" Command="{Binding TakeServer}" Padding="6,2" />
+                    </StackPanel>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Description}" Classes="hint" />
+                    </StackPanel>
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Border>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Git">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <Border Classes="frame" VerticalAlignment="Top" Margin="0,0,8,0">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="frame" Text="Git backups" />
+              <TextBlock Text="Upstream URL:" />
+              <TextBox x:Name="RemoteUrlBox" Watermark="git@github.com:owner/repository.git" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button x:Name="GitInitButton" Content="Initialize" />
+                <Button x:Name="GitCommitButton" Content="Commit" />
+                <Button x:Name="GitPullButton" Content="Pull" />
+                <Button x:Name="GitPushButton" Content="Push" />
+              </StackPanel>
+              <CheckBox x:Name="AutoCommitBox" Content="Commit server downloads automatically" />
+              <CheckBox x:Name="AutoPushBox" Content="Push after automatic commits" />
+              <CheckBox x:Name="AutoPullBox" Content="Pull before local uploads" />
+              <TextBlock x:Name="GitResultText" Classes="hint" />
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Activity">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,6">
+            <TextBlock x:Name="PhaseLabel" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="QueueLabel" />
+            <TextBlock x:Name="TotalsLabel" TextWrapping="Wrap" />
+          </StackPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="frame" Text="Activity log" />
+          <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1">
+            <local:LogView x:Name="ActivityLog" />
+          </Border>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Credentials">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="8" Margin="0,0,8,0">
+            <Border Classes="frame">
+              <StackPanel Spacing="6">
+                <TextBlock Classes="hint" Text="Optional SSH private key for this Git upstream. It is encrypted with AES-256-GCM in per-user GScriptRC data and decrypted only while Git runs." />
+                <TextBlock x:Name="KeyStatus" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Button x:Name="ImportKeyButton" Content="Import SSH key" />
+                  <Button x:Name="RemoveKeyButton" Content="Remove stored key" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="frame">
+              <StackPanel Spacing="6">
+                <TextBlock Text="GitHub/Git HTTPS personal access token:" />
+                <TextBox x:Name="TokenBox" PasswordChar="•" Watermark="Encrypted token is stored separately from the upstream URL" />
+                <TextBlock x:Name="TokenStatus" />
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Button x:Name="SaveTokenButton" Content="Save encrypted token" />
+                  <Button x:Name="RemoveTokenButton" Content="Remove stored token" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</rc:RcWindow>

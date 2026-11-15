@@ -1,0 +1,18 @@
+<common:RcWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:common="using:RemoteControl.Ui.Common"
+                 x:Class="RemoteControl.Ui.Session.LocalNpcsDialog"
+                 Title="Local NPCs"
+                 Width="320" SizeToContent="Height" CanResize="False"
+                 Background="{DynamicResource RcBackgroundBrush}">
+  <StackPanel Margin="10" Spacing="10">
+    <Grid ColumnDefinitions="Auto,*">
+      <TextBlock Text="Level:" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource RcTextBrush}" />
+      <TextBox Grid.Column="1" Name="LevelBox" Watermark="level.nw" />
+    </Grid>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Name="CancelButton" Content="Cancel" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button Name="OkButton" Content="OK" MinWidth="80" IsDefault="True" HorizontalContentAlignment="Center" />
+    </StackPanel>
+  </StackPanel>
+</common:RcWindow>

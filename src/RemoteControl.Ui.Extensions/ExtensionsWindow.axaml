@@ -1,0 +1,92 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Extensions"
+             x:Class="RemoteControl.Ui.Extensions.ExtensionsWindow"
+             Title="Extensions"
+             Width="620" Height="440" MinWidth="440" MinHeight="280"
+             WindowStartupLocation="CenterScreen"
+             Background="{DynamicResource RcBackgroundBrush}">
+  <rc:RcWindow.Styles>
+    <Style Selector="Button, ToggleButton">
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="MinHeight" Value="26" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="MinHeight" Value="26" />
+    </Style>
+    <Style Selector="TextBlock.section">
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+    <Style Selector="TextBlock.dim">
+      <Setter Property="Opacity" Value="0.75" />
+    </Style>
+    <Style Selector="ListBox#ExtensionList > ListBoxItem">
+      <Setter Property="Padding" Value="6,4" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="8">
+    <Grid DockPanel.Dock="Bottom" Margin="0,8,0,0" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+      <Button x:Name="RefreshButton" Grid.Column="0" Content="Refresh" ToolTip.Tip="Find the installed extensions again" />
+      <Button x:Name="OpenFolderButton" Grid.Column="1" Content="Open Extensions Folder" />
+      <Button x:Name="CloseButton" Grid.Column="3" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+    </Grid>
+    <Border x:Name="DisabledBanner" DockPanel.Dock="Top" IsVisible="False" Margin="0,0,0,8" Padding="8" CornerRadius="3"
+            BorderThickness="1" BorderBrush="{DynamicResource RcAlertBrush}" Background="{DynamicResource RcSurfaceBrush}">
+      <TextBlock x:Name="DisabledText" TextWrapping="Wrap"
+                 Text="Extensions are switched off. Turn on &quot;Extensions&quot; in the RC options (General) to use them." />
+    </Border>
+    <Border x:Name="StateFileBanner" DockPanel.Dock="Top" IsVisible="False" Margin="0,0,0,8" Padding="8" CornerRadius="3"
+            BorderThickness="1" BorderBrush="{DynamicResource RcAlertBrush}" Background="{DynamicResource RcSurfaceBrush}">
+      <TextBlock x:Name="StateFileText" TextWrapping="Wrap" />
+    </Border>
+    <Grid RowDefinitions="Auto,2*,6,Auto,*">
+      <TextBlock Grid.Row="0" Classes="section" Text="Installed extensions" />
+      <Border Grid.Row="1" BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}">
+        <Panel>
+          <ListBox x:Name="ExtensionList" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ExtensionRow">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6" Background="Transparent">
+                  <Grid.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="{Binding EnableMenuText}" Command="{Binding ToggleEnabledCommand}" IsEnabled="{Binding IsValid}" />
+                      <MenuItem Header="{Binding OutputMenuText}" Command="{Binding ToggleOutputCommand}" IsEnabled="{Binding IsValid}" />
+                      <Separator />
+                      <MenuItem Header="Open" Command="{Binding OpenCommand}" IsEnabled="{Binding IsValid}" />
+                      <MenuItem Header="Details" Command="{Binding DetailsCommand}" />
+                      <MenuItem Header="Remove" Command="{Binding RemoveCommand}" IsEnabled="{Binding CanRemove}" />
+                    </ContextMenu>
+                  </Grid.ContextMenu>
+                  <CheckBox Grid.Column="0" Content="Enabled" IsChecked="{Binding Enabled}" IsEnabled="{Binding IsValid}"
+                            ToolTip.Tip="Enable or disable this extension" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                    <TextBlock Classes="dim" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" FontSize="11" />
+                    <TextBlock Text="{Binding Error}" IsVisible="{Binding HasError}" Foreground="{DynamicResource RcAlertBrush}"
+                               TextTrimming="CharacterEllipsis" FontSize="11" ToolTip.Tip="{Binding Error}" />
+                  </StackPanel>
+                  <ToggleButton Grid.Column="2" Content="Output tab" IsChecked="{Binding OutputToTab}" IsEnabled="{Binding IsValid}"
+                                ToolTip.Tip="{Binding OutputTip}" />
+                  <Button Grid.Column="3" Content="Details" Command="{Binding DetailsCommand}" ToolTip.Tip="View extension details" />
+                  <Button Grid.Column="4" Content="Remove" Command="{Binding RemoveCommand}" IsEnabled="{Binding CanRemove}"
+                          ToolTip.Tip="{Binding RemoveTip}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock x:Name="EmptyLabel" Classes="dim" Text="No extensions installed" HorizontalAlignment="Center"
+                     VerticalAlignment="Center" IsVisible="False" />
+        </Panel>
+      </Border>
+      <GridSplitter Grid.Row="2" ResizeDirection="Rows" Background="Transparent" />
+      <TextBlock x:Name="LogTitle" Grid.Row="3" Classes="section" Text="Log" />
+      <TextBox x:Name="LogView" Grid.Row="4" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+               FontFamily="{DynamicResource RcScriptFontFamily}" FontSize="12"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"
+               Watermark="Select an extension to see its log" />
+    </Grid>
+  </DockPanel>
+</rc:RcWindow>
