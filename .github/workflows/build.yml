@@ -28,6 +28,17 @@ jobs:
         run: dotnet test RemoteControl.sln -c Release --no-build
       - name: Package
         run: scripts/publish.sh linux-x64
+      - name: Start the packaged program
+        # The package itself, on a display nobody sees: it must stay up, show its login window and write its options file.
+        run: |
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/rc-config"
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c '
+            publish/linux-x64/RemoteControl & pid=$!
+            sleep 20
+            kill -0 $pid || { echo "RemoteControl ended by itself"; exit 1; }
+            kill $pid'
+          test -f "$XDG_CONFIG_HOME/GScriptRC/control2config.txt"
+          echo "The packaged program started and wrote its options file."
       - uses: actions/upload-artifact@v4
         with:
           name: RemoteControl-linux-x64
@@ -48,8 +59,37 @@ jobs:
       - name: Package
         shell: pwsh
         run: ./scripts/publish.ps1 win-x64
+      - name: Start the packaged program
+        # The package itself on Windows: it must stay up, show its login window and write its options file. A picture of the
+        # screen is kept with the build.
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path publish/win-x64/RemoteControl.exe).Path
+          $process = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 25
+          $process.Refresh()
+          if ($process.HasExited) { throw "RemoteControl.exe ended by itself with code $($process.ExitCode)" }
+          $title = (Get-Process -Id $process.Id).MainWindowTitle
+          Write-Host "Window title: '$title'"
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save((Join-Path (Get-Location) 'publish/windows-start.png'))
+          Stop-Process -Id $process.Id -Force
+          $options = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'GScriptRC/control2config.txt'
+          if (-not (Test-Path $options)) { throw "The program did not write its options file ($options)." }
+          if ([string]::IsNullOrEmpty($title)) { throw "The program showed no window." }
+          Write-Host "The packaged program started, showed '$title' and wrote its options file."
       - uses: actions/upload-artifact@v4
         with:
           name: RemoteControl-win-x64
           path: publish/*.zip
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-start-picture
+          path: publish/windows-start.png
+          if-no-files-found: ignore
