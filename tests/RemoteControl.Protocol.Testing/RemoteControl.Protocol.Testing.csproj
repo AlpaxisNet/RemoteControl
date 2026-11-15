@@ -2,6 +2,8 @@
   <!-- What tests use in place of real servers: scripted list, game and NC servers on 127.0.0.1, and a session that records what it is asked. -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <!-- A library for tests, not a test project: "dotnet test" on the solution must not try to run it. -->
+    <IsTestProject>false</IsTestProject>
     <RootNamespace>RemoteControl.Protocol.Testing</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>

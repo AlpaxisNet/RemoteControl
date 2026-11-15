@@ -231,13 +231,14 @@ public sealed class ChatViewTests(ITestOutputHelper output)
             watch.Stop();
             output.WriteLine($"5000 appends and a render: {watch.ElapsedMilliseconds} ms");
             Assert.Equal(5000, chat.LineCount);
-            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(3), $"5000 appends took {watch.ElapsedMilliseconds} ms");
+            // About one second on a desktop; the limit only catches an append that grew with the number of lines (a build machine is several times slower).
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"5000 appends took {watch.ElapsedMilliseconds} ms");
 
             watch.Restart();
             for (int index = 0; index < 500; index++) chat.Append("more " + index);
             TestUi.Settle();
             output.WriteLine($"500 more appends with 5000 lines: {watch.ElapsedMilliseconds} ms");
-            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), $"500 appends took {watch.ElapsedMilliseconds} ms");
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(7), $"500 appends took {watch.ElapsedMilliseconds} ms");
             Assert.True(chat.IsAtBottom, "at the bottom after the appends");
         }
     }

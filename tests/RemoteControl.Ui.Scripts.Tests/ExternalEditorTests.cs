@@ -13,12 +13,14 @@ public sealed class ExternalEditorTests
     [AvaloniaFact]
     public void File_names_are_made_safe_and_never_shared()
     {
-        string a = ExternalEditor.PathFor("/w", "My:Server", "weapons", "a/b");
-        string b = ExternalEditor.PathFor("/w", "My:Server", "weapons", "a_b");
+        // The workspace is a real folder path of the system the test runs on (a drive letter on Windows).
+        string workspace = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "w"));
+        string a = ExternalEditor.PathFor(workspace, "My:Server", "weapons", "a/b");
+        string b = ExternalEditor.PathFor(workspace, "My:Server", "weapons", "a_b");
         Assert.NotEqual(a, b);
-        Assert.Equal("/w/My_Server/weapons/a_b.gs2", b);
-        Assert.StartsWith("/w/My_Server/weapons/a_b-", a);
-        Assert.Equal("/w/s/text/serveroptions.txt", ExternalEditor.PathFor("/w", "s", "text", "serveroptions.txt"));
+        Assert.Equal(Path.Combine(workspace, "My_Server", "weapons", "a_b.gs2"), b);
+        Assert.StartsWith(Path.Combine(workspace, "My_Server", "weapons", "a_b-"), a);
+        Assert.Equal(Path.Combine(workspace, "s", "text", "serveroptions.txt"), ExternalEditor.PathFor(workspace, "s", "text", "serveroptions.txt"));
         Assert.Equal("__", ExternalEditor.SafePart(".."));
         Assert.Equal("untitled", ExternalEditor.SafePart(""));
         Assert.Equal(["code", "--wait", "/f/x y.gs2"], ExternalEditor.CommandLine("code --wait \"{file}\"", "/f/x y.gs2"));

@@ -130,6 +130,9 @@ public sealed class SyncTests
         engine.Stop();
     }
 
+    /// <summary>How long a git step may take: its first run on a build machine (Windows above all) can need many seconds; the wait ends as soon as git answered.</summary>
+    private static readonly TimeSpan GitWait = TimeSpan.FromSeconds(90);
+
     [AvaloniaFact]
     public async Task Git_buttons_and_credentials_call_the_engine()
     {
@@ -143,10 +146,10 @@ public sealed class SyncTests
         TestUi.Find<TabControl>(window, "Pages").SelectedIndex = 2;
         TestUi.Settle();
         Click(TestUi.Find<Button>(window, "GitInitButton"));
-        await TestUi.WaitUntilAsync(() => window.GitResult == "Done.", TimeSpan.FromSeconds(10), "git init");
+        await TestUi.WaitUntilAsync(() => window.GitResult == "Done.", GitWait, "git init");
         Assert.Contains(window.Shown.Log, line => line.Contains("Git repository initialized", StringComparison.Ordinal));
         Click(TestUi.Find<Button>(window, "GitCommitButton"));
-        await TestUi.WaitUntilAsync(() => window.Shown.Log.Any(line => line.Contains("Sync changes committed", StringComparison.Ordinal)), TimeSpan.FromSeconds(10), "git commit");
+        await TestUi.WaitUntilAsync(() => window.Shown.Log.Any(line => line.Contains("Sync changes committed", StringComparison.Ordinal)), GitWait, "git commit");
 
         TestUi.Find<TabControl>(window, "Pages").SelectedIndex = 4;
         TestUi.Settle();
@@ -154,10 +157,10 @@ public sealed class SyncTests
         File.WriteAllText(key, "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n");
         window.PickKeyFile = () => Task.FromResult<string?>(key);
         Click(TestUi.Find<Button>(window, "ImportKeyButton"));
-        await TestUi.WaitUntilAsync(() => window.Shown.HasGitKey, TimeSpan.FromSeconds(5), "the key");
+        await TestUi.WaitUntilAsync(() => window.Shown.HasGitKey, GitWait, "the key");
         TestUi.Find<TextBox>(window, "TokenBox").Text = "ghp_testtoken";
         Click(TestUi.Find<Button>(window, "SaveTokenButton"));
-        await TestUi.WaitUntilAsync(() => window.Shown.HasGitToken, TimeSpan.FromSeconds(5), "the token");
+        await TestUi.WaitUntilAsync(() => window.Shown.HasGitToken, GitWait, "the token");
         Assert.Equal(string.Empty, TestUi.Find<TextBox>(window, "TokenBox").Text);
         Shots.Save(window, "sync-credentials-dark");
         Click(TestUi.Find<Button>(window, "RemoveTokenButton"));

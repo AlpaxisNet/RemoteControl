@@ -2,6 +2,8 @@
   <!-- What window tests share: the screenless application, temporary user folders, pictures of windows, input helpers. -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
+    <!-- A library for tests, not a test project: "dotnet test" on the solution must not try to run it. -->
+    <IsTestProject>false</IsTestProject>
     <RootNamespace>RemoteControl.Ui.TestKit</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
