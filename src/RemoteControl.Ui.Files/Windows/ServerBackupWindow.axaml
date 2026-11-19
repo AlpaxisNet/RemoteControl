@@ -1,0 +1,47 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Files"
+             x:Class="RemoteControl.Ui.Files.ServerBackupWindow"
+             Title="Server Backup" Width="620" Height="520" MinWidth="460" MinHeight="380">
+  <rc:RcWindow.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource RcDisabledTextBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Border.frame">
+      <Setter Property="BorderBrush" Value="{DynamicResource RcBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RcControlCornerRadius}" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+      <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" Margin="6,0,0,0" />
+      <Button x:Name="StopButton" DockPanel.Dock="Right" Content="Stop" MinWidth="80" HorizontalContentAlignment="Center" IsEnabled="False" Margin="6,0,0,0" />
+      <Button x:Name="StartButton" DockPanel.Dock="Right" Content="Start backup" MinWidth="110" HorizontalContentAlignment="Center" />
+      <TextBlock x:Name="CountsLabel" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+    <Border DockPanel.Dock="Top" Classes="frame" Margin="0,0,0,8">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Backup folder" FontWeight="SemiBold" />
+        <DockPanel>
+          <Button x:Name="OpenFolderButton" DockPanel.Dock="Right" Content="Open" Margin="6,0,0,0" />
+          <Button x:Name="ChooseFolderButton" DockPanel.Dock="Right" Content="Choose…" Margin="6,0,0,0" />
+          <TextBox x:Name="FolderBox" Watermark="A folder on this computer" />
+        </DockPanel>
+        <TextBlock x:Name="ExplanationText" Classes="hint"
+                   Text="Downloads every file this account may read on the server into this folder, in the server's folders (levels/start.nw goes to levels/start.nw). Files that are already there with the server's size and time are skipped, so running it again only fetches what changed. A file that changed is replaced, and the earlier copy is kept in the .earlier-copies folder. Nothing is deleted." />
+      </StackPanel>
+    </Border>
+    <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,8">
+      <TextBlock x:Name="PhaseLabel" Text="Ready." TextTrimming="CharacterEllipsis" />
+      <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Value="0" Height="6" MinHeight="6" />
+    </StackPanel>
+    <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1">
+      <local:LogView x:Name="Log" />
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

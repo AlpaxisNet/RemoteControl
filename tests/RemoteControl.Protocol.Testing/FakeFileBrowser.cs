@@ -5,20 +5,24 @@ namespace RemoteControl.Protocol.Testing;
 
 /// <summary>
 /// A file-browser view of a <see cref="FakeRcSession"/>. Calls are recorded in the session's <see cref="FakeRcSession.Calls"/> as
-/// <c>"FileBrowser.&lt;method&gt;"</c> or <c>"SyncFileBrowser.&lt;method&gt;"</c>. A download is answered from <see cref="RemoteFiles"/>
-/// (raising <see cref="FileReceived"/>, or <see cref="TransferFailed"/> when the file is missing); an upload stores into it.
+/// <c>"FileBrowser.&lt;method&gt;"</c>, <c>"SyncFileBrowser.&lt;method&gt;"</c> or <c>"BackupFileBrowser.&lt;method&gt;"</c>. A download is
+/// answered from <see cref="RemoteFiles"/> (raising <see cref="FileReceived"/>, or <see cref="TransferFailed"/> when the file is missing);
+/// an upload stores into it. <see cref="OnCall"/> lets a test answer a request the moment it is made, as a server would.
 /// </summary>
 public sealed class FakeFileBrowser : IRcFileBrowser
 {
     private readonly FakeRcSession _session;
     private readonly string _prefix;
 
-    internal FakeFileBrowser(FakeRcSession session, bool isSync)
+    internal FakeFileBrowser(FakeRcSession session, bool isSync, string prefix)
     {
         _session = session;
         IsSync = isSync;
-        _prefix = isSync ? "SyncFileBrowser." : "FileBrowser.";
+        _prefix = prefix;
     }
+
+    /// <summary>Called with every request of this view after it was recorded (on the caller's thread), to answer it.</summary>
+    public Action<RecordedCall>? OnCall { get; set; }
 
     /// <inheritdoc />
     public bool IsSync { get; }
@@ -64,8 +68,14 @@ public sealed class FakeFileBrowser : IRcFileBrowser
 
     private Task<bool> Send(string method, params object?[] arguments)
     {
-        _session.Record(_prefix + method, arguments);
+        Record(method, arguments);
         return Task.FromResult(_session.SendResult && !_session.IsClosed);
+    }
+
+    private void Record(string method, object?[] arguments)
+    {
+        _session.Record(_prefix + method, arguments);
+        OnCall?.Invoke(new RecordedCall(_prefix + method, arguments));
     }
 
     /// <inheritdoc />
@@ -77,9 +87,19 @@ public sealed class FakeFileBrowser : IRcFileBrowser
     /// <inheritdoc />
     public async Task<byte[]?> DownloadAsync(string path, CancellationToken cancellationToken = default)
     {
-        _session.Record(_prefix + nameof(DownloadAsync), new object?[] { path });
+        Record(nameof(DownloadAsync), new object?[] { path });
         if (_session.IsClosed) return null;
-        byte[]? content = DownloadHandler is not null ? await DownloadHandler(path).ConfigureAwait(false) : RemoteFiles.TryGetValue(path, out byte[]? stored) ? stored : null;
+        byte[]? content;
+        try
+        {
+            // As the real session: a cancelled download gives null and raises nothing.
+            content = DownloadHandler is not null ? await DownloadHandler(path).WaitAsync(cancellationToken).ConfigureAwait(false) : RemoteFiles.TryGetValue(path, out byte[]? stored) ? stored : null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+
         if (content is null) RaiseTransferFailed(path, "No such file.");
         else RaiseFileReceived(path, content);
         return content;

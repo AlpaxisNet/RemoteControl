@@ -27,6 +27,9 @@ public static class ToolIds
     /// <summary>The sync and git backups window (Ui.Files). One per session.</summary>
     public const string Sync = "sync";
 
+    /// <summary>The server backup window (Ui.Files): every file the account may read, downloaded into a local folder. One per session.</summary>
+    public const string ServerBackup = "serverbackup";
+
     /// <summary>The server options editor (Ui.Scripts). One per session.</summary>
     public const string ServerOptions = "serveroptions";
 

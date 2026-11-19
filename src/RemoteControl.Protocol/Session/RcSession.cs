@@ -22,6 +22,7 @@ public sealed partial class RcSession : IRcSession
     private readonly EventPoster _poster;
     private readonly RcFileBrowser _browser;
     private readonly RcFileBrowser _sync;
+    private readonly RcFileBrowser _backup;
     private volatile FramedConnection? _rc;
     private volatile FramedConnection? _nc;
     private int _used;
@@ -47,6 +48,7 @@ public sealed partial class RcSession : IRcSession
         _poster = EventPoster.Create(options.SynchronizationContext, options.Post, "Remote Control session");
         _browser = new RcFileBrowser(this, isSync: false);
         _sync = new RcFileBrowser(this, isSync: true);
+        _backup = new RcFileBrowser(this, isSync: false);
     }
 
     /// <inheritdoc />
@@ -84,6 +86,9 @@ public sealed partial class RcSession : IRcSession
 
     /// <inheritdoc />
     public IRcFileBrowser SyncFileBrowser => _sync;
+
+    /// <inheritdoc />
+    public IRcFileBrowser BackupFileBrowser => _backup;
 
     internal RcSessionOptions Options => _options;
 

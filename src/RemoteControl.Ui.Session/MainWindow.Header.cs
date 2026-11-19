@@ -83,6 +83,7 @@ internal sealed partial class MainWindow
         On(MenuAccounts, () => OpenTool(ToolIds.Accounts));
         On(MenuToalls, () => OpenTool(ToolIds.Toalls));
         On(MenuFileBrowser, () => OpenTool(ToolIds.FileBrowser));
+        On(MenuServerBackup, () => OpenTool(ToolIds.ServerBackup));
         On(MenuRcOptions, () => OpenTool(ToolIds.RcOptions));
         On(MenuServerOptions, () => OpenTool(ToolIds.ServerOptions));
         On(MenuFolderConfig, () => OpenTool(ToolIds.FolderConfig));

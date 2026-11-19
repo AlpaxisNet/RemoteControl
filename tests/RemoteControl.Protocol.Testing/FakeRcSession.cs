@@ -5,7 +5,7 @@ using RemoteControl.Protocol.Text;
 namespace RemoteControl.Protocol.Testing;
 
 /// <summary>A call made to a <see cref="FakeRcSession"/> or one of its file-browser views.</summary>
-/// <param name="Method">The method name (for a view: <c>"FileBrowser.DownloadAsync"</c> or <c>"SyncFileBrowser.DownloadAsync"</c>).</param>
+/// <param name="Method">The method name (for a view: <c>"FileBrowser.DownloadAsync"</c>, <c>"SyncFileBrowser.DownloadAsync"</c> or <c>"BackupFileBrowser.DownloadAsync"</c>).</param>
 /// <param name="Arguments">The arguments, as passed (byte memory is copied into an array).</param>
 public sealed record RecordedCall(string Method, IReadOnlyList<object?> Arguments)
 {
@@ -33,8 +33,9 @@ public sealed class FakeRcSession : IRcSession
     public FakeRcSession(string account = "TestAccount")
     {
         Account = account;
-        FakeFileBrowser = new FakeFileBrowser(this, isSync: false);
-        FakeSyncFileBrowser = new FakeFileBrowser(this, isSync: true);
+        FakeFileBrowser = new FakeFileBrowser(this, isSync: false, "FileBrowser.");
+        FakeSyncFileBrowser = new FakeFileBrowser(this, isSync: true, "SyncFileBrowser.");
+        FakeBackupFileBrowser = new FakeFileBrowser(this, isSync: false, "BackupFileBrowser.");
     }
 
     // ---- Recording -------------------------------------------------------------------------------------------------------------
@@ -209,6 +210,12 @@ public sealed class FakeRcSession : IRcSession
 
     /// <inheritdoc />
     public IRcFileBrowser SyncFileBrowser => FakeSyncFileBrowser;
+
+    /// <summary>The server backup's file-browser view, with its settable state and raise methods.</summary>
+    public FakeFileBrowser FakeBackupFileBrowser { get; }
+
+    /// <inheritdoc />
+    public IRcFileBrowser BackupFileBrowser => FakeBackupFileBrowser;
 
     // ---- Events ----------------------------------------------------------------------------------------------------------------
 

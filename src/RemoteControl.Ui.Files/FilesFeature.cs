@@ -2,12 +2,12 @@ using RemoteControl.Ui.Shell;
 
 namespace RemoteControl.Ui.Files;
 
-/// <summary>The files group: the file browser and the "Sync &amp; Git Backups" window, and the session's synchronisation behind it.</summary>
+/// <summary>The files group: the file browser, the "Sync &amp; Git Backups" window, the server backup, and the session's synchronisation behind them.</summary>
 public static class FilesFeature
 {
     /// <summary>
     /// Registers the group's tools: <see cref="ToolIds.FileBrowser"/> (argument: a folder to go to, as a <see cref="string"/>, or
-    /// null; refused with a message while files are being synchronised) and <see cref="ToolIds.Sync"/>.
+    /// null; refused with a message while files are being synchronised), <see cref="ToolIds.Sync"/> and <see cref="ToolIds.ServerBackup"/>.
     /// </summary>
     /// <param name="tools">The program's tool registry.</param>
     public static void Register(ToolRegistry tools)
@@ -15,6 +15,7 @@ public static class FilesFeature
         ArgumentNullException.ThrowIfNull(tools);
         tools.Register(ToolIds.FileBrowser, (context, argument) => FilesSession.For(context)?.ShowFileBrowser(argument as string));
         tools.Register(ToolIds.Sync, (context, _) => FilesSession.For(context)?.ShowSync());
+        tools.Register(ToolIds.ServerBackup, (context, _) => FilesSession.For(context)?.ShowServerBackup());
     }
 
     /// <summary>

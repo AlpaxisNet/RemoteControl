@@ -86,6 +86,10 @@ internal sealed class FilesSession : ISyncStatus
         return window;
     }
 
+    /// <summary>Shows the server backup window.</summary>
+    /// <returns>The window, or null.</returns>
+    public Window? ShowServerBackup() => _ended ? null : Context.Windows.ShowSingle(ToolIds.ServerBackup, () => new ServerBackupWindow(Context));
+
     /// <summary>Shows the sync window; with sync off it says how to turn it on.</summary>
     /// <returns>The window, or null.</returns>
     public Window? ShowSync()

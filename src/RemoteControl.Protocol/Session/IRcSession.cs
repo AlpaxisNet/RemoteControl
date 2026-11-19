@@ -95,6 +95,9 @@ public interface IRcSession : IDisposable
     /// <summary>The folder synchroniser's view of the file browser (RClib's <c>rc_sync_*</c> functions).</summary>
     IRcFileBrowser SyncFileBrowser { get; }
 
+    /// <summary>The server backup's view of the file browser: its listings and downloads never reach the windows or the synchroniser.</summary>
+    IRcFileBrowser BackupFileBrowser { get; }
+
     // ---- Connection events -------------------------------------------------------------------------------------------------
 
     /// <summary>The server accepted the login (RClib <c>on_connected</c>).</summary>
