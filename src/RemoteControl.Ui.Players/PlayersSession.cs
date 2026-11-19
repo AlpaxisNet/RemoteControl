@@ -428,8 +428,10 @@ internal sealed partial class PlayersSession : IPrivateMessages
     private void OnBanData(BanDataEventArgs e)
     {
         if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        // The legacy answer (Alpaxis sends it for /openaccess and /openban too) is shown as legacy data: read as lister lines, a banned
+        // account looked not banned.
         if (Context.Windows.ShowSingle("ban", () => new BanWindow(this)) is BanWindow window)
-            window.Load(e.Account, e.ComputerId, e.Details, UseNewBanType);
+            window.Load(e.Account, e.ComputerId, e.Details, UseNewBanType && !BanTexts.IsLegacyDetails(e.Details));
     }
 
     private void OnBanList(BanListEventArgs e)

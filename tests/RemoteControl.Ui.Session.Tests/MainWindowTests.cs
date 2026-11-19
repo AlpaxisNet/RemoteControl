@@ -229,6 +229,23 @@ public sealed class MainWindowTests
     }
 
     [AvaloniaFact]
+    public void An_admin_message_is_an_alert_line_of_the_chat()
+    {
+        using TestSession test = NewSession();
+        MainWindow window = ShowMain(test);
+        test.Fake.RaiseAdminMessage("Admin Staff:\nThe server restarts in 5 minutes.");
+        Assert.Contains("Admin Staff: The server restarts in 5 minutes.", window.MainChat.Text);
+        Assert.Equal(["Attention:Alert"], test.Shell.Requests);
+        test.Fake.RaiseAdminMessage("Maintenance tonight");
+        Assert.Contains("Admin message: Maintenance tonight", window.MainChat.Text);
+        test.Fake.RaiseAdminMessage("Server message:\nThere is a message limit of 1024 characters.");
+        Assert.Contains("Server message: There is a message limit of 1024 characters.", window.MainChat.Text);
+        Assert.DoesNotContain("Admin message: Server message", window.MainChat.Text);
+        test.Fake.RaiseAdminMessage("\n ");
+        Assert.DoesNotContain("#ALERT", window.MainChat.Text);
+    }
+
+    [AvaloniaFact]
     public void A_private_message_without_its_window_alerts_in_the_chat()
     {
         using TestSession test = NewSession();

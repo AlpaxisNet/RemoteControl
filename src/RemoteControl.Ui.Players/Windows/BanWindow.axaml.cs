@@ -17,6 +17,7 @@ internal sealed partial class BanWindow : RcWindow
 
     private readonly PlayersSession? _owner;
     private readonly Scope[] _scopes = new Scope[4];
+    private int _loads;
 
     /// <summary>For the designer.</summary>
     public BanWindow() : this(null)
@@ -58,6 +59,9 @@ internal sealed partial class BanWindow : RcWindow
     /// <summary>A tab (0 local, 1 global, 2 computer, 3 global computer) (for tests).</summary>
     internal Scope ScopeAt(int index) => _scopes[index];
 
+    /// <summary>The clock that counts down the seconds left of a ban that came (tests move it).</summary>
+    internal Func<DateTimeOffset> Now { get; set; } = () => DateTimeOffset.UtcNow;
+
     /// <summary>Shows the ban data the server sent (<c>TLocalBanWindow::open</c>).</summary>
     /// <param name="account">The account.</param>
     /// <param name="computerId">The computer id, or empty.</param>
@@ -65,14 +69,19 @@ internal sealed partial class BanWindow : RcWindow
     /// <param name="useNewBanType">Whether the new ban type is used.</param>
     public void Load(string account, string computerId, string details, bool useNewBanType)
     {
+        _loads++;
         Account = account ?? string.Empty;
-        ComputerId = computerId ?? string.Empty;
+        // Alpaxis sends -1 when the account is not online here: then there is no computer to ban.
+        ComputerId = BanTexts.IsComputerId(computerId) ? computerId : string.Empty;
+        // A guest of Alpaxis is "pc:<id>": it has only its computer, whose bans belong on the computer tabs.
+        bool guest = useNewBanType && Account.StartsWith("pc:", StringComparison.Ordinal) && BanTexts.IsComputerId(Account[3..]);
+        if (guest && ComputerId.Length == 0) ComputerId = Account[3..];
         UseNewBanType = useNewBanType;
-        Title = "Edit Access of " + Account + (ComputerId.Length == 0 ? string.Empty : " (computer: " + ComputerId + ")");
+        Title = "Edit Access of " + Account + (ComputerId.Length == 0 || guest ? string.Empty : " (computer: " + ComputerId + ")");
         for (int index = 0; index < 4; index++)
         {
             Scope scope = _scopes[index];
-            scope.Target = index < 2 ? Account : ComputerId.Length == 0 ? string.Empty : "pc:" + ComputerId;
+            scope.Target = index < 2 ? (guest ? string.Empty : Account) : ComputerId.Length == 0 ? string.Empty : "pc:" + ComputerId;
             scope.Tab.IsVisible = useNewBanType ? scope.Target.Length > 0 : index == 0 && Account.Length > 0;
             scope.Reset(_owner?.BanTypes ?? Array.Empty<BanType>());
         }
@@ -115,6 +124,7 @@ internal sealed partial class BanWindow : RcWindow
         if (_owner is null) return false;
         Scope scope = _scopes[index];
         if (scope.Target.Length == 0) return false;
+        int loads = _loads;
         bool banned = scope.Banned.IsChecked == true;
         string reason = scope.Reason.Text ?? string.Empty;
         bool sent;
@@ -128,11 +138,30 @@ internal sealed partial class BanWindow : RcWindow
         {
             string target = scope.Target;
             string world = (index & 1) == 0 ? "local" : "all";
-            string type = (scope.Type.SelectedItem as BanType)?.Name ?? string.Empty;
-            string release = scope.ResetTime.IsChecked == true ? string.Empty : scope.ReleaseTime;
+            var chosen = scope.Type.SelectedItem as BanType;
+            string type = chosen?.Name ?? string.Empty;
+            bool reset = scope.ResetTime.IsChecked == true;
+            // A ban that is set carries its length: Alpaxis takes a setban without releasetime as a ban without an end, and counts the
+            // length from the moment it arrives, so a ban that is kept sends the seconds that are left now. A lift keeps what it sent
+            // before (nothing to time).
+            bool ended = false;
+            string release = banned ? BanTexts.ReleaseToSend(scope.ReleaseTime, reset, chosen?.Seconds ?? 0, scope.ElapsedSeconds(), out ended) : reset ? string.Empty : scope.ReleaseTime;
+            if (banned && ended)
+            {
+                string again = "The ban of " + target + " has ended since this window showed it.\n\nBan " + target + " again for " + (chosen?.Label ?? "(no type)") + "?";
+                if (!await Dialogs.ConfirmAsync("Edit Access", again, this, "Ban again").ConfigureAwait(true) || IsClosed) return false;
+            }
+
+            if (banned && release.Length == 0)
+            {
+                string question = "The length of the ban type \"" + (type.Length == 0 ? "(none)" : type) + "\" is not known, so the server would ban " + target + " without an end.\n\nBan without an end?";
+                if (!await Dialogs.ConfirmAsync("Edit Access", question, this, "Ban without an end").ConfigureAwait(true) || IsClosed) return false;
+            }
+
             sent = await _owner.SendAsync(this, session => session.SetBanAsync(target, world, banned, type, release, reason)).ConfigureAwait(true);
         }
-        if (sent) HideAndRemember();
+        // Data that arrived while a question was open (another account) stays on screen.
+        if (sent && loads == _loads) HideAndRemember();
         return sent;
     }
 
@@ -202,6 +231,15 @@ internal sealed partial class BanWindow : RcWindow
 
         public string ReleaseTime { get; private set; } = string.Empty;
 
+        /// <summary>The type of the ban that came, or null for a tab without one.</summary>
+        public string? ReceivedType { get; private set; }
+
+        /// <summary>When the ban came, or null.</summary>
+        public DateTimeOffset? LoadedAt { get; private set; }
+
+        /// <summary>The seconds since the ban came (0 without one).</summary>
+        public long ElapsedSeconds() => LoadedAt is { } at ? (long)Math.Max(0, (_window.Now() - at).TotalSeconds) : 0;
+
         public void Reset(IReadOnlyList<BanType> types)
         {
             bool enabled = Target.Length > 0;
@@ -210,6 +248,8 @@ internal sealed partial class BanWindow : RcWindow
             ResetTime.IsChecked = false;
             Reason.Text = string.Empty;
             ReleaseTime = string.Empty;
+            ReceivedType = null;
+            LoadedAt = null;
             Type.ItemsSource = types.ToArray();
             Type.SelectedIndex = types.Count == 0 ? -1 : 0;
             Update();
@@ -217,12 +257,35 @@ internal sealed partial class BanWindow : RcWindow
 
         public void SetTypes(IReadOnlyList<BanType> types)
         {
-            string? selected = (Type.SelectedItem as BanType)?.Name;
+            var current = Type.SelectedItem as BanType;
             BanType[] items = types.ToArray();
+            if (ReceivedType is { } received && (current is null || current.NotListed))
+            {
+                // The ban's own type, now that the list is there (or still not in it).
+                Select(received, items);
+                Update();
+                return;
+            }
+
             Type.ItemsSource = items;
-            int index = selected is null ? -1 : Array.FindIndex(items, type => type.Name == selected);
+            int index = current is null ? -1 : Array.FindIndex(items, type => type.Name == current.Name);
             Type.SelectedIndex = index >= 0 ? index : items.Length == 0 ? -1 : 0;
             Update();
+        }
+
+        /// <summary>Selects a type by name; one that is not in the list is shown first, as it is, so that applying keeps it.</summary>
+        private void Select(string name, BanType[] listed)
+        {
+            int index = Array.FindIndex(listed, type => type.Name == name);
+            if (index >= 0)
+            {
+                Type.ItemsSource = listed;
+                Type.SelectedIndex = index;
+                return;
+            }
+
+            Type.ItemsSource = new[] { new BanType(name, 0) { NotListed = true } }.Concat(listed).ToArray();
+            Type.SelectedIndex = 0;
         }
 
         public void SetBanned(bool banned)
@@ -234,11 +297,10 @@ internal sealed partial class BanWindow : RcWindow
         public void Apply(BanRecord ban)
         {
             Banned.IsChecked = true;
-            if (Type.ItemsSource is BanType[] items)
-            {
-                int index = Array.FindIndex(items, type => type.Name == ban.BanType);
-                if (index >= 0) Type.SelectedIndex = index;
-            }
+            ReceivedType = ban.BanType;
+            LoadedAt = _window.Now();
+            BanType[] listed = (Type.ItemsSource as BanType[] ?? Array.Empty<BanType>()).Where(type => !type.NotListed).ToArray();
+            Select(ban.BanType, listed);
             ReleaseTime = ban.ReleaseTime;
             Reason.Text = ban.Reason;
             Update();
@@ -247,7 +309,9 @@ internal sealed partial class BanWindow : RcWindow
         private void Update()
         {
             long seconds = (Type.SelectedItem as BanType)?.Seconds ?? 0;
-            TimeLeft.Text = "Ban time left: " + (Banned.IsChecked == true ? BanTexts.TimeLeft(ResetTime.IsChecked == true ? null : ReleaseTime, seconds, DateTimeOffset.UtcNow) : "-");
+            (string left, bool ended) = BanTexts.Remaining(ReleaseTime, ElapsedSeconds());
+            string? shown = ResetTime.IsChecked == true || ended ? null : left;
+            TimeLeft.Text = "Ban time left: " + (Banned.IsChecked == true ? BanTexts.TimeLeft(shown, seconds, _window.Now()) : "-");
             UpdateIcon();
         }
 

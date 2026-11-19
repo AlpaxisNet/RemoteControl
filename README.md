@@ -39,7 +39,7 @@ what changed is underneath:
 | | |
 | --- | --- |
 | Code | about 54,000 lines of documented C# in 14 libraries, 23,000 lines of tests |
-| Tests | **1,435**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
+| Tests | **1,473**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
 | Systems | Windows 10 and 11 (x64), Linux (x64, X11 or XWayland); packages built by GitHub Actions on every tag |
 | Network | the list server, the RC and NC connections and their file transfers in managed code; tried live against an Alpaxis network |
 
@@ -49,7 +49,7 @@ what changed is underneath:
 unpack it anywhere and start `RemoteControl` (`RemoteControl.exe`):
 
 ```bash
-tar -xzf RemoteControl-1.1.0-linux-x64.tar.gz && cd RemoteControl-1.1.0-linux-x64 && ./RemoteControl
+tar -xzf RemoteControl-1.1.1-linux-x64.tar.gz && cd RemoteControl-1.1.1-linux-x64 && ./RemoteControl
 ```
 
 The folder holds the program, the few native libraries of the user interface, and `images/`, `sounds/`, `fonts/`,
@@ -156,6 +156,10 @@ On purpose:
   once per connection: Alpaxis answers ban texts only then, and dropped them without a word before. Other staff see the server's
   "New RC: … (in the client)" line the first time. A player of another server gets the short menu of the Servers tab, and a player
   who left is offered nothing that goes by the player id they had (the server may have given it to someone else).
+- Edit Access sends a new ban, or a reset ban time, with the length of its ban type (the C++ sent none, which Alpaxis takes as a ban
+  without an end) and a ban that is kept with the seconds left now; it asks before a ban without an end when a type's length is not
+  known, and before banning again a ban that ended while the window was open. A ban keeps its own type even when the server's list
+  does not have it. Admin messages appear as alert lines in the RC chat.
 
 - The built-in list server is Alpaxis; the C++ inserted a "Retail" profile for another network by itself. A profile of your own
   with that name stays as it is.

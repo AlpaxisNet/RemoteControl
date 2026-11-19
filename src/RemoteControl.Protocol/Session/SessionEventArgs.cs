@@ -335,10 +335,14 @@ public sealed class BanDataEventArgs : EventArgs
     /// <summary>The account.</summary>
     public string Account { get; }
 
-    /// <summary>The computer id (empty for the legacy packet).</summary>
+    /// <summary>The computer id as the server sent it (empty for the legacy packet; Alpaxis sends <c>-1</c> for an account that is not online there).</summary>
     public string ComputerId { get; }
 
-    /// <summary>The details, <c>key=value</c> lines (see <see cref="BanText.ParseDetails"/>).</summary>
+    /// <summary>
+    /// The details: for the lister <c>ban</c> text one ban per line, each line comma text of <c>key=value</c> fields
+    /// (<c>account=…,world=local|all,banned=1,bantype=…,releasetime=&lt;seconds left&gt;,reason=…</c>); for the legacy packet
+    /// <c>banned=0|1</c> and the reason (<see cref="BanText.FormatLegacyDetails"/>).
+    /// </summary>
     public string Details { get; }
 }
 

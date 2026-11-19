@@ -113,6 +113,7 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
         EventHandler<PrivateMessageEventArgs> pm = (_, e) => { if (Current()) UiSafe.Run(() => OnPrivateMessage(e), "MainWindow.Pm"); };
         EventHandler<LocalNpcsEventArgs> localNpcs = (_, e) => { if (Current()) UiSafe.Run(() => OnLocalNpcs(e), "MainWindow.LocalNpcs"); };
         EventHandler<PlayerEventArgs> players = (_, _) => { if (Current()) UiSafe.Run(RefreshTitle, "MainWindow.Players"); };
+        EventHandler<TextEventArgs> adminMessage = (_, e) => { if (Current()) UiSafe.Run(() => OnAdminMessage(e.Text), "MainWindow.AdminMessage"); };
         session.RcChatReceived += rcChat;
         session.ServerTextReceived += serverText;
         session.NcChatReceived += ncChat;
@@ -121,6 +122,7 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
         session.LocalNpcsReceived += localNpcs;
         session.PlayerJoined += players;
         session.PlayerLeft += players;
+        session.AdminMessageReceived += adminMessage;
         return new Unsubscriber(() =>
         {
             session.RcChatReceived -= rcChat;
@@ -131,6 +133,7 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
             session.LocalNpcsReceived -= localNpcs;
             session.PlayerJoined -= players;
             session.PlayerLeft -= players;
+            session.AdminMessageReceived -= adminMessage;
         });
     }
 
@@ -150,6 +153,19 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
         if (options.NewPmAlerts) AppendMain("#ALERT New PM from " + display, new ChatAppendOptions { SuppressUrgency = true }, attention: false);
         // The players group asks for attention (sound, tray) when it is part of the program; without it this window does.
         if (_context.Services.Get<IPrivateMessages>() is null) _context.Shell.RequestAttention(_context, AttentionKind.PrivateMessage);
+    }
+
+    /// <summary>
+    /// An admin message (PLO_RC_ADMINMESSAGE): an alert line of the RC chat, which asks for attention. The server sends a title line and
+    /// the text ("Admin &lt;account&gt;:", or a notice of its own such as "Server message:"), which the session splits at the server's §; the
+    /// chat shows them on one line, and only a text without a title of its own is marked "Admin message:".
+    /// </summary>
+    private void OnAdminMessage(string? text)
+    {
+        string[] lines = (text ?? string.Empty).Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0) return;
+        bool titled = lines.Length > 1 && lines[0].EndsWith(':');
+        AppendMain("#ALERT " + (titled ? string.Empty : "Admin message: ") + string.Join(' ', lines));
     }
 
     private void OnLocalNpcs(LocalNpcsEventArgs e)

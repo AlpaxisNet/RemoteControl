@@ -462,7 +462,10 @@ public interface IRcSession : IDisposable
     /// <param name="world">The world.</param>
     /// <param name="banned">Ban or unban.</param>
     /// <param name="banType">The ban type.</param>
-    /// <param name="releaseTime">The release time, or empty.</param>
+    /// <param name="releaseTime">
+    /// <c>releasetime</c>: the ban's length in seconds from now, as Alpaxis reads it (a missing or 0 value is a ban without an end,
+    /// 100000000 or more too), or empty to leave it out.
+    /// </param>
     /// <param name="reason">The reason.</param>
     /// <returns>Whether it was sent.</returns>
     Task<bool> SetBanAsync(string target, string world, bool banned, string banType, string releaseTime, string reason);
