@@ -183,8 +183,17 @@ internal sealed partial class PlayerListWindow : RcWindow
     /// <summary>Selects a player row (for tests and the search).</summary>
     internal void Select(PlayerRow row) => _players.SelectedItem = row;
 
-    /// <summary>The menu of a player row, bound to that player.</summary>
-    internal List<Control> MenuFor(PlayerRow row) => _owner?.PlayerMenu(this, row.Target) ?? new List<Control>();
+    /// <summary>
+    /// The menu of a player row, bound to that player: a player of another server gets the Servers tab's menu (this server's actions
+    /// cannot reach them), a player who is no longer online gets no action that goes by the player id (the server may have given the id
+    /// to someone else since).
+    /// </summary>
+    internal List<Control> MenuFor(PlayerRow row)
+    {
+        if (_owner is null) return new List<Control>();
+        if (row.IsExternal) return _owner.RemotePlayerMenu(this, row.Target);
+        return _owner.PlayerMenu(this, row.Target, online: !row.IsOffline);
+    }
 
     // ---- Session ---------------------------------------------------------------------------------------------------------
 
@@ -271,6 +280,7 @@ internal sealed partial class PlayerListWindow : RcWindow
         row.Account = player.Account;
         row.Level = player.Level;
         row.Status = player.StatusIcon;
+        row.IsExternal = player.IsExternal;
         row.Icon = IconOf(row);
     }
 

@@ -81,9 +81,15 @@ internal sealed partial class PlayersSession
     /// <summary>The player context menu of "This server" (<c>TPlayerList.cpp:609-672</c>), every item bound to the player it opened for.</summary>
     /// <param name="owner">The player list.</param>
     /// <param name="target">The player.</param>
+    /// <param name="online">
+    /// Whether the player is online. A player who sent a PM and left keeps the id they had, which the server may have given to someone
+    /// else since: then the attributes and the access are asked for by account, and Disconnect, Warp, Update Level and Admin Message
+    /// (which only go by id or by the level) are left out.
+    /// </param>
     /// <returns>The items (separators included).</returns>
-    public List<Control> PlayerMenu(Window owner, PlayerTarget target)
+    public List<Control> PlayerMenu(Window owner, PlayerTarget target, bool online = true)
     {
+        int id = online ? target.Id : -1;
         var items = new List<Control>
         {
             Item("Private Message", () => { OpenPrivateMessage(target.Id, target.Account, target.Nick); return Task.CompletedTask; }),
@@ -92,21 +98,25 @@ internal sealed partial class PlayersSession
             Item("Staff Activity", () => SendIf(owner, target, session => session.RequestStaffActivityAsync(target.Account))),
             Item("Profile", () => SendIf(owner, target, session => session.RequestProfileAsync(target.Account))),
             new Separator(),
-            Item("Edit Attributes", () => SendIf(owner, target, session => target.Id >= 0 ? session.RequestPlayerAttributesAsync(target.Id) : session.RequestPlayerAttributesAsync(target.Account))),
+            Item("Edit Attributes", () => SendIf(owner, target, session => id >= 0 ? session.RequestPlayerAttributesAsync(id) : session.RequestPlayerAttributesAsync(target.Account))),
             Item("Edit Rights", () => SendIf(owner, target, session => session.RequestPlayerRightsAsync(target.Account))),
             Item("Edit Comments", () => SendIf(owner, target, session => session.RequestPlayerCommentsAsync(target.Account))),
-            Item("Edit Access", () => RequestAccessAsync(owner, target.Account, target.Id)),
-            Item("Disconnect", () => DisconnectAsync(owner, target)),
-            Item("Reset", () => ResetAsync(owner, target.Account, "Do you really want to reset the attributes of " + target.Account + " ?")),
-            new Separator(),
-            Item("Edit Account", () => SendIf(owner, target, session => session.RequestAccountAsync(target.Account))),
-            Item("Warp", () => { Warp(owner, target); return Task.CompletedTask; }),
-            Item("Update Level", () => UpdateLevelAsync(owner, target)),
-            Item("Admin Message", () => AdminMessageAsync(owner, target)),
-            new Separator(),
-            Item("Copy Account", () => ClipboardHelper.SetTextAsync(owner, target.Account)),
-            Item("Copy Nickname", () => ClipboardHelper.SetTextAsync(owner, target.Nick)),
+            Item("Edit Access", () => RequestAccessAsync(owner, target.Account, id)),
         };
+        if (online) items.Add(Item("Disconnect", () => DisconnectAsync(owner, target)));
+        items.Add(Item("Reset", () => ResetAsync(owner, target.Account, "Do you really want to reset the attributes of " + target.Account + " ?")));
+        items.Add(new Separator());
+        items.Add(Item("Edit Account", () => SendIf(owner, target, session => session.RequestAccountAsync(target.Account))));
+        if (online)
+        {
+            items.Add(Item("Warp", () => { Warp(owner, target); return Task.CompletedTask; }));
+            items.Add(Item("Update Level", () => UpdateLevelAsync(owner, target)));
+            items.Add(Item("Admin Message", () => AdminMessageAsync(owner, target)));
+        }
+
+        items.Add(new Separator());
+        items.Add(Item("Copy Account", () => ClipboardHelper.SetTextAsync(owner, target.Account)));
+        items.Add(Item("Copy Nickname", () => ClipboardHelper.SetTextAsync(owner, target.Nick)));
         return items;
     }
 

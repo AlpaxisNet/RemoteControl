@@ -283,6 +283,46 @@ public sealed class SessionChatAndPlayerTests
     }
 
     [Fact]
+    public async Task Ban_texts_open_the_client_rc_once_first()
+    {
+        // Alpaxis answers ban, ban-history and staff-activity texts only on a connection that opened the client RC.
+        await using var server = new FakeGameServer();
+        (RcSession session, FakeConnection client) = await ConnectAsync(server);
+        using (session)
+        {
+            Assert.True(await session.RequestBanHistoryAsync("Bob").Within());
+            Assert.Equal("GraalEngine,clientrc,1", (await client.WaitForPacketAsync(ClientPacketId.RequestText)).Text);
+            Assert.Equal("GraalEngine,lister,getbanhistory,Bob", (await client.WaitForPacketAsync(ClientPacketId.SendText)).Text);
+
+            Assert.True(await session.RequestStaffActivityAsync("Bob").Within());
+            Assert.True(await session.RequestBanTypesAsync().Within());
+            Assert.True(await session.RequestNewPlayerBanAsync("Bob", 7).Within());
+            Assert.Equal("GraalEngine,lister,getstaffactivity,Bob", (await client.WaitForPacketAsync(ClientPacketId.SendText)).Text);
+            Assert.Equal("GraalEngine,lister,bantypes", (await client.WaitForPacketAsync(ClientPacketId.RequestText)).Text);
+            Assert.Equal("GraalEngine,lister,getbanbyid,7", (await client.WaitForPacketAsync(ClientPacketId.SendText)).Text);
+
+            Task<BanListEventArgs> history = Next<BanListEventArgs>(h => session.BanListReceived += h, h => session.BanListReceived -= h);
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "clientrc", "1");
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "lister", "banhistory", "Bob", "2026-11-01 banned by Staff");
+            BanListEventArgs received = await history;
+            Assert.Equal("banhistory", received.Kind);
+        }
+    }
+
+    [Fact]
+    public async Task A_refused_client_rc_is_said_once()
+    {
+        await using var server = new FakeGameServer();
+        (RcSession session, FakeConnection client) = await ConnectAsync(server);
+        using (session)
+        {
+            Task<TextEventArgs> error = Next<TextEventArgs>(h => session.ProtocolError += h, h => session.ProtocolError -= h);
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "clientrc", "0", "you are not on this server's staff list");
+            Assert.Contains("you are not on this server's staff list", (await error).Text, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task Account_rights_and_options_replies_are_parsed()
     {
         await using var server = new FakeGameServer();

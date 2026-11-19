@@ -38,6 +38,7 @@ internal sealed class PlayerRow : RowBase
     private string _level = string.Empty;
     private int _status = -1;
     private bool _expanded = true;
+    private bool _external;
 
     /// <summary>Creates a group row.</summary>
     /// <param name="name">"Admins" or "Players".</param>
@@ -99,8 +100,14 @@ internal sealed class PlayerRow : RowBase
     /// <summary>Whether a group is expanded.</summary>
     public bool IsExpanded { get => _expanded; set => Set(ref _expanded, value); }
 
-    /// <summary>Whether the player belongs to "Admins": RC and staff clients have no level (<c>isAdminPlayer</c>).</summary>
-    public bool InAdmins => !IsOffline && string.IsNullOrWhiteSpace(Level);
+    /// <summary>
+    /// Whether the player is on another server (a player of a PM server, or one who sent a PM from another server): the actions of
+    /// this server do not reach them, so their menu is that of the Servers tab.
+    /// </summary>
+    public bool IsExternal { get => _external; set => Set(ref _external, value); }
+
+    /// <summary>Whether the player belongs to "Admins": RC and staff clients of this server have no level (<c>isAdminPlayer</c>).</summary>
+    public bool InAdmins => !IsOffline && !IsExternal && string.IsNullOrWhiteSpace(Level);
 
     /// <summary>What the actions work on.</summary>
     public PlayerTarget Target => new(Id, Account, Nick, Level);

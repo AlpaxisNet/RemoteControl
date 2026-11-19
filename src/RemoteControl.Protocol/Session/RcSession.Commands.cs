@@ -40,6 +40,30 @@ public sealed partial class RcSession
         return SendRcNow(packet, writer => writer.WriteText(text));
     }
 
+    /// <summary>
+    /// Opens the server's "client RC" once per connection: the <c>clientrc</c> request (<c>requesttext("clientrc", 1)</c>) the in-game RC
+    /// sends. Alpaxis answers the texts of the ban window and of the player menu (<c>getban</c>, <c>getbanbyid</c>, <c>setban</c>,
+    /// <c>getbanhistory</c>, <c>getstaffactivity</c>, <c>bantypes</c>) only on a connection that opened it, and drops them without a word
+    /// otherwise, which left Ban History, Staff Activity and Edit Access doing nothing; it checks the same staff list, address and rights
+    /// as the RC login. A server without it ignores the request. Sent right before the first of those texts, so the other staff see the
+    /// server's "New RC: … (in the client)" line only when ban features are used. On the context.
+    /// </summary>
+    /// <returns>Whether it was sent (true when it was sent before).</returns>
+    private Task<bool> OpenClientRcNow()
+    {
+        if (_clientRcRequested) return Task.FromResult(true);
+        _clientRcRequested = true;
+        return SendRcNow(ClientPacketId.RequestText, writer => writer.WriteText(Tokenized("GraalEngine", "clientrc", "1")));
+    }
+
+    /// <summary>Sends a ban text after <see cref="OpenClientRcNow"/>, both queued in order. On the context.</summary>
+    private async Task<bool> SendBanTextNow(Func<Task<bool>> send)
+    {
+        Task<bool> open = OpenClientRcNow();
+        Task<bool> sent = send();
+        return await open.ConfigureAwait(false) & await sent.ConfigureAwait(false);
+    }
+
     private Task<bool> SendWithPending<T>(Queue<T> queue, T item, Func<Task<bool>> send) => Run(() =>
     {
         queue.Enqueue(item);
@@ -187,9 +211,9 @@ public sealed partial class RcSession
 
     /// <inheritdoc />
     public Task<bool> RequestNewPlayerBanAsync(string account, int playerId = -1) =>
-        SendWithPending(_pendingBanAccounts, account ?? string.Empty, () => playerId >= 0
+        SendWithPending(_pendingBanAccounts, account ?? string.Empty, () => SendBanTextNow(() => playerId >= 0
             ? SendListerTextNow("getbanbyid", playerId.ToString(CultureInfo.InvariantCulture), ClientPacketId.SendText)
-            : SendListerTextNow("getban", account, ClientPacketId.SendText));
+            : SendListerTextNow("getban", account, ClientPacketId.SendText)));
 
     /// <inheritdoc />
     public Task<bool> RequestLegacyPlayerBanAsync(string account) =>
@@ -199,17 +223,17 @@ public sealed partial class RcSession
     public Task<bool> RequestPlayerBanByAccountAsync(string account) => RequestNewPlayerBanAsync(account, -1);
 
     /// <inheritdoc />
-    public Task<bool> RequestBanTypesAsync() => Run(() => SendListerTextNow("bantypes", null, ClientPacketId.RequestText), false);
+    public Task<bool> RequestBanTypesAsync() => Run(() => SendBanTextNow(() => SendListerTextNow("bantypes", null, ClientPacketId.RequestText)), false);
 
     /// <inheritdoc />
-    public Task<bool> RequestBanHistoryAsync(string account) => Run(() => SendListerTextNow("getbanhistory", account, ClientPacketId.SendText), false);
+    public Task<bool> RequestBanHistoryAsync(string account) => Run(() => SendBanTextNow(() => SendListerTextNow("getbanhistory", account, ClientPacketId.SendText)), false);
 
     /// <inheritdoc />
-    public Task<bool> RequestStaffActivityAsync(string account) => Run(() => SendListerTextNow("getstaffactivity", account, ClientPacketId.SendText), false);
+    public Task<bool> RequestStaffActivityAsync(string account) => Run(() => SendBanTextNow(() => SendListerTextNow("getstaffactivity", account, ClientPacketId.SendText)), false);
 
     /// <inheritdoc />
     public Task<bool> SetBanAsync(string target, string world, bool banned, string banType, string releaseTime, string reason) =>
-        SendRc(ClientPacketId.SendText, writer => writer.WriteText(CommaText.Tokenize(BanText.SetBanFields(target, world, banned, banType, releaseTime, reason))));
+        Run(() => SendBanTextNow(() => SendRcNow(ClientPacketId.SendText, writer => writer.WriteText(CommaText.Tokenize(BanText.SetBanFields(target, world, banned, banType, releaseTime, reason))))), false);
 
     /// <inheritdoc />
     public Task<bool> SetLegacyPlayerBanAsync(string account, bool banned, string reason) => SendRc(ClientPacketId.PlayerBanSet, writer =>
