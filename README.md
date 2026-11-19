@@ -39,7 +39,7 @@ what changed is underneath:
 | | |
 | --- | --- |
 | Code | about 54,000 lines of documented C# in 14 libraries, 23,000 lines of tests |
-| Tests | **1,392**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
+| Tests | **1,435**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
 | Systems | Windows 10 and 11 (x64), Linux (x64, X11 or XWayland); packages built by GitHub Actions on every tag |
 | Network | the list server, the RC and NC connections and their file transfers in managed code; tried live against an Alpaxis network |
 
@@ -86,7 +86,8 @@ tray icon (the session stays signed in) and asks before signing out when there i
 | **Players** | the player list with other servers, guilds and channels; private and mass messages with history; attributes, rights, comments, account, profile, warp, disconnect, reset; bans in the old and the new form with their history; the accounts list |
 | **Scripts** | weapons, classes, database NPCs and levels over the NC; an editor with highlighting, live checking, completion from a script API description, hover and signature help, formatting, find and replace, a minimap; an external editor with upload on save. An editor counts as saved only when the text really went to the server, and closing one with changes asks |
 | **Server settings** | server options, server flags and folder configuration as text |
-| **Files** | a file browser as a list or as icons, with previews: upload, download, rename, move, delete, edit, open with the desktop's program and upload again when the file changes |
+| **Files** | a file browser as a list or as icons, with previews: upload (also by dropping files from the file manager, on Windows and on Linux), download, rename, move, delete, edit, open with the desktop's program and upload again when the file changes |
+| **Server Backup** | Files → Server Backup downloads every file the account may read into a folder of your choice, in the server's folders (`levels/start.nw` goes to `levels/start.nw`); running it again fetches only what changed, keeps the earlier copy of a changed file in `.earlier-copies/`, and never deletes anything |
 | **Sync and git backups** | keeps a local folder and the server's files, scripts and configuration in step, one way or both, with exclusions, conflicts that lose nothing, deletions only with permission, and git commits and pushes |
 | **Extensions** | packages in an `extensions` folder that run beside the program and talk to it in JSON lines ([docs/EXTENSIONS.md](docs/EXTENSIONS.md)) |
 | **MCP** | `RemoteControl --mcp` is an MCP server over standard input and output that drives the running program (servers and windows, script editors, chat), with approvals and an audit log; off until you switch it on |
@@ -150,6 +151,11 @@ publishes the packages of every `v*` tag as a release ([release.yml](.github/wor
 ## What is different from the C++ version
 
 On purpose:
+
+- Ban History, Staff Activity, Edit Access and saving a ban first open the server's "client RC" (the request the in-game RC sends),
+  once per connection: Alpaxis answers ban texts only then, and dropped them without a word before. Other staff see the server's
+  "New RC: … (in the client)" line the first time. A player of another server gets the short menu of the Servers tab, and a player
+  who left is offered nothing that goes by the player id they had (the server may have given it to someone else).
 
 - The built-in list server is Alpaxis; the C++ inserted a "Retail" profile for another network by itself. A profile of your own
   with that name stays as it is.
