@@ -36,6 +36,8 @@ public sealed class App : Application
                 Debug = Program.Debug,
                 InstallErrorHandlers = true,
             });
+            // Avalonia 11 takes no files dropped from a file manager on X11; the bridge does (FileDrop).
+            if (OperatingSystem.IsLinux()) FileDrop.Bridge = new X11FileDropBridge(_runtime.Services.Log);
             // The application's handlers (UiErrors) now write the crash log; the early ones would write every report twice.
             Program.EarlyHandlers?.Dispose();
             Program.EarlyHandlers = null;

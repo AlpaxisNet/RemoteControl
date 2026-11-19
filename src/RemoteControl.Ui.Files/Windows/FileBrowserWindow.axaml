@@ -135,6 +135,10 @@
                   </ListBox.ItemTemplate>
                 </ListBox>
               </Border>
+              <Border x:Name="DropHint" IsVisible="False" IsHitTestVisible="False" Margin="12" Padding="10,6" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                      Background="{DynamicResource RcSurfaceBrush}" BorderBrush="{DynamicResource RcAccentBrush}" BorderThickness="1" CornerRadius="{DynamicResource RcControlCornerRadius}">
+                <TextBlock x:Name="DropHintText" FontWeight="SemiBold" />
+              </Border>
             </Panel>
           </Grid>
           <Popup x:Name="PreviewPopup" Placement="Pointer" HorizontalOffset="18" VerticalOffset="18" IsLightDismissEnabled="False" IsHitTestVisible="False">

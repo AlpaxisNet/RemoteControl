@@ -63,6 +63,9 @@ The C++ crashed because of what these rules forbid; they are not style.
 - Existing users keep their files: the options file (`control2config.txt`), the saved accounts (`accounts.key`, `accounts.dat`)
   and the list-server profiles (`listservers.conf`) are read in the formats the C++ wrote.
 - The built-in list server is Alpaxis (`listserver.alpaxis.net`, port 14922). Users add their own profiles.
+- Avalonia's non-public parts are used in one place only: on X11 the drop of files from a file manager (Avalonia 11 has no XDND),
+  `RemoteControl.App/Platform/X11FileDrop.cs`, which wraps a window's entry of Avalonia's X11 event table. A test
+  (`AvaloniaX11EventsTests`) fails when a new Avalonia version moves those members; without them windows only stop taking drops.
 - Tests: logic is tested directly; a window is tested headless (open it, type and click, read its controls, save a picture when
   `RC_TEST_SHOTS` names a folder). A test never needs a network, a screen or the user's files, and it never starts a program on the
   desktop: in a test run `ExternalPrograms.Disabled` is set, so a link or a sound is only recorded (`ExternalPrograms.Suppressed`).

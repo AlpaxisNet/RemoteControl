@@ -28,7 +28,7 @@ namespace RemoteControl.Ui.Files;
 /// last one; Edit refuses binary files and saves in the encoding it read (D-27); a preview that fails is not retried and never stalls
 /// the others (D-30); the dialogs are asynchronous (D-19) and context menus are made per use (D-33).
 /// </remarks>
-internal sealed partial class FileBrowserWindow : RcWindow
+internal sealed partial class FileBrowserWindow : RcWindow, IFileDropTarget
 {
     private static readonly TimeSpan WatchInterval = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan PreviewTimeout = TimeSpan.FromSeconds(60);
@@ -105,9 +105,7 @@ internal sealed partial class FileBrowserWindow : RcWindow
         AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerMovedEvent, OnPointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnPointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
-        DragDrop.SetAllowDrop(this, true);
-        AddHandler(DragDrop.DragOverEvent, OnDragOver);
-        AddHandler(DragDrop.DropEvent, OnDrop);
+        Track(FileDrop.Enable(this, this));
 
         if (context is null) return;
         _mutationRefresh = Track(UiDispatch.Debounce(TimeSpan.FromMilliseconds(500), RefreshCurrent, "FileBrowser.MutationRefresh", this));
@@ -1061,7 +1059,7 @@ internal sealed partial class FileBrowserWindow : RcWindow
         {
             if (Directory.Exists(file))
             {
-                AppendLog("Folders are not uploaded: " + file);
+                AppendLog("Folders cannot be uploaded (the server takes files): " + file);
                 continue;
             }
 
@@ -1199,24 +1197,47 @@ internal sealed partial class FileBrowserWindow : RcWindow
         return null;
     }
 
-    private void OnDragOver(object? sender, DragEventArgs e)
+    // ---- Files dropped from the desktop (FileDrop: Avalonia's events on Windows, the XDND bridge on X11) ------------------------
+
+    /// <summary>The folder files dropped at a point go to: the folder under the pointer (tree node, grid folder), else the folder shown.</summary>
+    /// <param name="point">The point in window coordinates.</param>
+    /// <returns>The folder (ending in <c>/</c>), or null when no folder is open.</returns>
+    internal string? DropFolderAt(Point point)
     {
-#pragma warning disable CS0618 // DataFormats.Files is the 11.3 way to read dropped files.
-        e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
-#pragma warning restore CS0618
+        string folder = FolderAt(point) ?? _currentFolder;
+        return folder.Length == 0 ? null : folder;
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    /// <summary>Whether a drop at a point is taken, with the hint naming the folder (<see cref="IFileDropTarget"/>).</summary>
+    bool IFileDropTarget.FileDragOver(Point point)
     {
-#pragma warning disable CS0618
-        IEnumerable<Avalonia.Platform.Storage.IStorageItem>? items = e.Data.GetFiles();
-#pragma warning restore CS0618
-        if (items is null) return;
-        string[] files = items.Select(item => item.TryGetLocalPath()).Where(path => !string.IsNullOrEmpty(path)).Select(path => path!).ToArray();
-        if (files.Length == 0) return;
-        e.Handled = true;
-        string folder = FolderAt(e.GetPosition(this)) ?? _currentFolder;
-        UiSafe.Fire(() => UploadLocalFilesAsync(files, folder), "FileBrowser.Drop");
+        if (_context is null || IsClosed || _context.IsEnded || !_context.Session.IsConnected || DropFolderAt(point) is not { } folder)
+        {
+            DropHint.IsVisible = false;
+            return false;
+        }
+
+        DropHintText.Text = "Drop to upload into " + folder;
+        DropHint.IsVisible = true;
+        return true;
+    }
+
+    /// <inheritdoc />
+    void IFileDropTarget.FileDragEnded() => DropHint.IsVisible = false;
+
+    /// <inheritdoc />
+    void IFileDropTarget.FilesDropped(Point point, IReadOnlyList<string> paths)
+    {
+        DropHint.IsVisible = false;
+        if (_context is null || IsClosed) return;
+        if (DropFolderAt(point) is not { } folder)
+        {
+            AppendLog("Open a folder first: dropped files are uploaded into the folder shown (or the folder they are dropped on).");
+            return;
+        }
+
+        AppendLog(paths.Count == 1 ? "Uploading the dropped file into " + folder : "Uploading " + paths.Count + " dropped files into " + folder);
+        UiSafe.Fire(() => UploadLocalFilesAsync(paths, folder), "FileBrowser.Drop");
     }
 }
 
