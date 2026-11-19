@@ -322,7 +322,7 @@ internal sealed partial class MainWindow
         if (_history.Count > HistoryLimit) _history.RemoveAt(_history.Count - 1);
         _historyIndex = -1;
 
-        string[] words = message.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        string[] words = message.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
         string command = words.Length > 0 ? words[0].ToLowerInvariant() : string.Empty;
         if (command == "/nc")
         {
