@@ -49,7 +49,7 @@ what changed is underneath:
 unpack it anywhere and start `RemoteControl` (`RemoteControl.exe`):
 
 ```bash
-tar -xzf RemoteControl-1.0.0-linux-x64.tar.gz && cd RemoteControl-1.0.0-linux-x64 && ./RemoteControl
+tar -xzf RemoteControl-1.1.0-linux-x64.tar.gz && cd RemoteControl-1.1.0-linux-x64 && ./RemoteControl
 ```
 
 The folder holds the program, the few native libraries of the user interface, and `images/`, `sounds/`, `fonts/`,
