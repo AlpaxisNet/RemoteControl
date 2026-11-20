@@ -90,6 +90,12 @@ internal sealed partial class ServerBackupWindow : RcWindow
             return;
         }
 
+        if (_context.Windows.Find(ToolIds.ImportMissing) is ImportMissingWindow { IsBusy: true })
+        {
+            AppendLog("Import Missing is searching or uploading for this server; wait for it to end first.");
+            return;
+        }
+
         if (_context.IsEnded || !_context.Session.IsConnected)
         {
             AppendLog("Not connected.");

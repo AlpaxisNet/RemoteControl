@@ -28,6 +28,7 @@ internal sealed partial class ImportMissingWindow : RcWindow
     private readonly SessionContext? _context;
     private readonly ObservableCollection<ImportMissingItem> _items = [];
     private CancellationTokenSource? _stop;
+    private CancellationTokenSource _connectionEnded = new();
     private Phase _phase;
     private bool _closeAfterStop;
     private string _root = string.Empty;
@@ -53,6 +54,12 @@ internal sealed partial class ImportMissingWindow : RcWindow
         CloseButton.Click += On.ClickAsync(CloseOrAskAsync, "ImportMissing.Close");
         ChooseFolderButton.Click += On.ClickAsync(ChooseFolderAsync, "ImportMissing.Choose");
         OnClosedOnce(() => _stop?.Cancel());
+        if (context is not null)
+        {
+            context.SessionReplaced += OnSessionReplaced;
+            OnClosedOnce(() => context.SessionReplaced -= OnSessionReplaced);
+        }
+
         if (context is not null) FolderBox.Text = context.App.Options.Current.ImportMissingFolder;
         UpdateButtons();
     }
@@ -75,8 +82,8 @@ internal sealed partial class ImportMissingWindow : RcWindow
     /// <summary>The status line.</summary>
     internal string StatusText => PhaseLabel.Text ?? string.Empty;
 
-    /// <summary>The folder as typed, as a full path (<c>~</c> is the home folder), or null with the reason shown.</summary>
-    internal string? ChosenFolder()
+    /// <summary>The folder as typed, as a full path (<c>~</c> is the home folder), or null with the reason shown. Whether it exists is asked off the UI thread.</summary>
+    internal async Task<string?> ChosenFolderAsync()
     {
         string text = (FolderBox.Text ?? string.Empty).Trim();
         if (text == "~" || text.StartsWith("~/", StringComparison.Ordinal))
@@ -90,7 +97,8 @@ internal sealed partial class ImportMissingWindow : RcWindow
         try
         {
             string full = Path.GetFullPath(text);
-            if (Directory.Exists(full)) return full;
+            bool exists = await Task.Run(() => Directory.Exists(full)).ConfigureAwait(true);
+            if (exists) return full;
             ShowStatus("The folder " + full + " does not exist.");
             return null;
         }
@@ -107,18 +115,17 @@ internal sealed partial class ImportMissingWindow : RcWindow
     {
         if (_context is null || _phase != Phase.Idle || IsClosed) return;
         if (!CanUseSession()) return;
-        string? folder = ChosenFolder();
-        if (folder is null) return;
-        FolderBox.Text = folder;
-        if (!string.Equals(_context.App.Options.Current.ImportMissingFolder, folder, StringComparison.Ordinal))
-            _context.App.Options.Update(options => options with { ImportMissingFolder = folder }, this);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(ClosedToken);
         _stop = stop;
+        _connectionEnded = new CancellationTokenSource();
         SetPhase(Phase.Searching);
-        Task running = SearchAsync(folder, stop);
+        Task running = SearchAsync(stop);
         Running = running;
         await running.ConfigureAwait(true);
     }
+
+    /// <summary>The session was replaced (a reconnect): what waits on the old connection ends with words that say so.</summary>
+    private void OnSessionReplaced(object? sender, EventArgs e) => _connectionEnded.Cancel();
 
     private bool CanUseSession()
     {
@@ -144,21 +151,33 @@ internal sealed partial class ImportMissingWindow : RcWindow
         return true;
     }
 
-    private async Task SearchAsync(string folder, CancellationTokenSource stop)
+    private async Task SearchAsync(CancellationTokenSource stop)
     {
         CancellationToken token = stop.Token;
         try
         {
+            ShowStatus("Checking the folder.");
+            string? folder = await ChosenFolderAsync().ConfigureAwait(true);
+            if (folder is null || IsClosed) return;
+            FolderBox.Text = folder;
+            if (!string.Equals(_context!.App.Options.Current.ImportMissingFolder, folder, StringComparison.Ordinal))
+                _context.App.Options.Update(options => options with { ImportMissingFolder = folder }, this);
             _items.Clear();
             _root = folder;
             CountsLabel.Text = string.Empty;
-            ShowStatus("Asking the server for the missing files. It may take a while: the server searches its levels, NPCs, weapons and classes.");
-            var importer = new MissingFilesImporter(_context!.Session, ImporterOptions);
-            MissingFilesAnswer answer = await importer.RequestAsync(token).ConfigureAwait(true);
+            ShowStatus("Asking the server for the missing files.");
+            var importer = new MissingFilesImporter(_context.Session, ImporterOptions, _connectionEnded.Token);
+            MissingFilesAnswer answer = await importer.RequestAsync(token, ShowServerProgress).ConfigureAwait(true);
             if (IsClosed) return;
+            if (answer.ConnectionLost)
+            {
+                ShowStatus("The connection to the server ended before the result came. Connect again and click Find missing files again.");
+                return;
+            }
+
             if (answer.TimedOut)
             {
-                ShowStatus("The server did not answer: this server does not know the request for missing files. It needs a newer game server.");
+                ShowStatus($"The server gave no answer of any kind within {ImporterOptions.RequestTimeout.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture)} seconds: this server does not know the request for missing files. It needs a newer game server.");
                 return;
             }
 
@@ -187,7 +206,11 @@ internal sealed partial class ImportMissingWindow : RcWindow
             });
             LocalFileIndex index = await LocalFileIndex.BuildAsync(folder, wanted, scan, token).ConfigureAwait(true);
             if (IsClosed) return;
-            ImportPlan plan = ImportPlanner.Plan(answer.Files, index, _rights, _maxUpload);
+            ShowStatus("Checking " + Plural(answer.Files.Count, "file") + " against the folder rights and the limit.");
+            IReadOnlyList<FileBrowserFolder> rights = _rights;
+            long maxUpload = _maxUpload;
+            ImportPlan plan = await Task.Run(() => ImportPlanner.Plan(answer.Files, index, rights, maxUpload), CancellationToken.None).ConfigureAwait(true);
+            if (IsClosed || token.IsCancellationRequested) throw new OperationCanceledException(token);
             foreach (ImportRow row in plan.Rows)
             {
                 var item = new ImportMissingItem(row, folder, ChooseLocalFileAsync);
@@ -207,6 +230,13 @@ internal sealed partial class ImportMissingWindow : RcWindow
             stop.Dispose();
             if (!IsClosed) SetPhase(Phase.Idle);
         }
+    }
+
+    /// <summary>What the server said while the request is open: it is searching (the wait is not limited then), or a part of the result came.</summary>
+    private void ShowServerProgress(MissingFilesProgressEventArgs e)
+    {
+        if (e.Searching) ShowStatus("The server is searching its levels, NPCs, weapons, classes and animations. This can take minutes on a large world; click Cancel to stop waiting.");
+        else ShowStatus($"The server is sending its answer: part {e.Part} of {e.Parts}.");
     }
 
     private string Summary(ImportPlan plan, LocalFileIndex index)
@@ -229,10 +259,17 @@ internal sealed partial class ImportMissingWindow : RcWindow
     {
         if (_phase != Phase.Idle || IsClosed || !item.HasAlternatives) return;
         IReadOnlyList<string> paths = item.LocalChoices;
-        string[] shown = paths.Select(path => item.RelativePath(path) + " (" + ImportMissingItem.FormatSize(SizeOf(path)) + ")").ToArray();
+        long[] sizes = await Task.Run(() => paths.Select(SizeOf).ToArray()).ConfigureAwait(true);
+        if (IsClosed || _phase != Phase.Idle) return;
+        string[] shown = paths.Select((path, position) => item.RelativePath(path) + " (" + ImportMissingItem.FormatSize(sizes[position]) + ")").ToArray();
         int? choice = await Dialogs.ChooseAsync("Import Missing", "Files named " + item.Name + " under the folder; the first one is chosen now.", shown, this).ConfigureAwait(true);
         if (IsClosed || _phase != Phase.Idle || choice is not { } index || index == 0 || !_items.Contains(item)) return;
-        item.Replace(ImportPlanner.WithLocalFile(item.Row, paths[index], _rights, _maxUpload));
+        ImportRow current = item.Row;
+        IReadOnlyList<FileBrowserFolder> rights = _rights;
+        long maxUpload = _maxUpload;
+        ImportRow replaced = await Task.Run(() => ImportPlanner.WithLocalFile(current, paths[index], rights, maxUpload)).ConfigureAwait(true);
+        if (IsClosed || _phase != Phase.Idle || !_items.Contains(item) || !ReferenceEquals(item.Row, current)) return;
+        item.Replace(replaced);
     }
 
     private static long SizeOf(string path)
@@ -265,7 +302,7 @@ internal sealed partial class ImportMissingWindow : RcWindow
         bool accepted = false;
         try
         {
-            string question = $"Upload {Plural(count, "file")} ({ImportMissingItem.FormatSize(bytes)} in total) from {_root} to {_context.ServerName}?\n\nEach file goes into the server folder shown for it. These files are missing on the server, so nothing there is replaced.";
+            string question = $"Upload {Plural(count, "file")} ({ImportMissingItem.FormatSize(bytes)} in total) from {_root} to {_context.ServerName}?\n\nEach file goes into the server folder shown for it. Only files the server reported missing are uploaded; a file of the same name that has appeared on the server since then would be replaced.";
             accepted = await Dialogs.ConfirmAsync("Import Missing", question, this, "Upload").ConfigureAwait(true);
         }
         finally
@@ -309,6 +346,7 @@ internal sealed partial class ImportMissingWindow : RcWindow
             string text = $"Uploaded {uploaded} of {Plural(rows.Count, "file")}.";
             if (other > 0) text += $" {other} could not be uploaded: the reason is in each row.";
             if (run.Cancelled) text += " Cancelled.";
+            if (run.StoppedBecause is not null) text += " " + run.StoppedBecause;
             ShowStatus(text + " Click Find missing files to see what the server still lacks.");
             Progress.Value = run.Results.Count;
         }
@@ -381,8 +419,8 @@ internal sealed partial class ImportMissingWindow : RcWindow
 
     private async Task ChooseFolderAsync()
     {
-        string? start = (FolderBox.Text ?? string.Empty).Trim();
-        if (start.Length == 0 || !Directory.Exists(start)) start = null;
+        string typed = (FolderBox.Text ?? string.Empty).Trim();
+        string? start = typed.Length > 0 && await Task.Run(() => Directory.Exists(typed)).ConfigureAwait(true) ? typed : null;
         string? chosen = PickFolder is not null ? await PickFolder().ConfigureAwait(true) : await FilePickers.PickFolderAsync(this, "Folder to search", start).ConfigureAwait(true);
         if (IsClosed || string.IsNullOrWhiteSpace(chosen) || _phase != Phase.Idle) return;
         FolderBox.Text = chosen;

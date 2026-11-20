@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using RemoteControl.Sync;
 using RemoteControl.Ui.Common;
+using RemoteControl.Ui.Shell;
 
 namespace RemoteControl.Ui.Files;
 
@@ -325,9 +326,18 @@ internal sealed partial class SyncWindow : RcWindow
             await Dialogs.ShowMessageAsync("Unable to open workspace", "The folder " + workspace + " could not be opened.", this).ConfigureAwait(true);
     }
 
+    /// <summary>Whether Import Missing runs for this session; the sync is then not started by hand (it says so).</summary>
+    private async Task<bool> RefusedWhileImportingAsync()
+    {
+        if (_owner?.Context.Windows.Find(ToolIds.ImportMissing) is not ImportMissingWindow { IsBusy: true }) return false;
+        await Dialogs.ShowMessageAsync("Sync", "Import Missing is searching or uploading for this server. Wait for it to end, or stop it in its window, before you start a sync.", this).ConfigureAwait(true);
+        return true;
+    }
+
     private async Task StartAsync()
     {
         if (Engine is not { } engine) return;
+        if (await RefusedWhileImportingAsync().ConfigureAwait(true)) return;
         if (_snapshot.Settings.Workspace.Length == 0 && !await ChooseWorkspaceAsync().ConfigureAwait(true)) return;
         engine.Start();
     }
@@ -335,6 +345,7 @@ internal sealed partial class SyncWindow : RcWindow
     private async Task SyncNowAsync()
     {
         if (Engine is not { } engine) return;
+        if (await RefusedWhileImportingAsync().ConfigureAwait(true)) return;
         if (_snapshot.Settings.Workspace.Length == 0 && !await ChooseWorkspaceAsync().ConfigureAwait(true)) return;
         engine.SyncNow();
     }

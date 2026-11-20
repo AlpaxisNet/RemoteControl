@@ -222,6 +222,120 @@ public sealed class ImportMissingWindowTests
     }
 
     [AvaloniaFact]
+    public async Task While_the_server_searches_the_window_says_so_and_waits_far_longer_than_the_time_for_a_first_answer()
+    {
+        using var f = new Fixture();
+        MakeLocalFiles(f);
+        Serve(f, Sample(), answer: false);
+        f.Fake.OnCall = call =>
+        {
+            if (call.Method == "RequestMissingFilesAsync") f.Fake.RaiseMissingFilesSearching();
+        };
+        ImportMissingWindow window = Open(f);
+        TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
+        await TestUi.WaitUntilAsync(() => window.StatusText.Contains("The server is searching", StringComparison.Ordinal), what: "the searching text");
+        await Task.Delay(700);
+        TestUi.Settle();
+        Assert.True(window.IsBusy);
+        Assert.Contains("The server is searching", window.StatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("does not know", window.StatusText, StringComparison.Ordinal);
+
+        f.Fake.RaiseMissingFiles(Sample());
+        await window.Running;
+        Assert.Equal(5, window.Items.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task A_connection_that_ends_while_the_server_searches_is_not_called_an_old_server()
+    {
+        using var f = new Fixture();
+        MakeLocalFiles(f);
+        Serve(f, Sample(), answer: false);
+        f.Fake.OnCall = call =>
+        {
+            if (call.Method == "RequestMissingFilesAsync") f.Fake.RaiseMissingFilesSearching();
+        };
+        ImportMissingWindow window = Open(f);
+        TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
+        await TestUi.WaitUntilAsync(() => window.StatusText.Contains("The server is searching", StringComparison.Ordinal), what: "the searching text");
+        f.Fake.RaiseDisconnected();
+        await window.Running;
+        Assert.Contains("connection to the server ended", window.StatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("does not know", window.StatusText, StringComparison.Ordinal);
+        Assert.False(window.IsBusy);
+    }
+
+    [AvaloniaFact]
+    public async Task Cancel_ends_the_wait_after_searching()
+    {
+        using var f = new Fixture();
+        MakeLocalFiles(f);
+        Serve(f, Sample(), answer: false);
+        f.Fake.OnCall = call =>
+        {
+            if (call.Method == "RequestMissingFilesAsync") f.Fake.RaiseMissingFilesSearching();
+        };
+        ImportMissingWindow window = Open(f);
+        TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
+        await TestUi.WaitUntilAsync(() => window.StatusText.Contains("The server is searching", StringComparison.Ordinal), what: "the searching text");
+        TestUi.Click(TestUi.Find<Button>(window, "CancelButton"));
+        await window.Running;
+        Assert.Equal("Cancelled.", window.StatusText);
+        Assert.False(window.IsBusy);
+    }
+
+    [AvaloniaFact]
+    public async Task The_confirmation_says_only_files_the_server_reported_missing_are_uploaded_and_does_not_promise_nothing_is_replaced()
+    {
+        using var f = new Fixture();
+        ImportMissingWindow window = Found(f);
+        await FindAsync(window);
+        TestUi.Click(TestUi.Find<Button>(window, "UploadButton"));
+        RcDialog question = TestUi.FindDialog();
+        Assert.Contains("Only files the server reported missing are uploaded", question.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("nothing there is replaced", question.Message, StringComparison.Ordinal);
+        question.Cancel();
+        await TestUi.WaitUntilAsync(() => !window.IsBusy, what: "the refusal");
+    }
+
+    [AvaloniaFact]
+    public async Task Three_uploads_in_a_row_the_server_does_not_answer_end_the_run_and_the_window_says_so()
+    {
+        using var f = new Fixture();
+        for (int number = 0; number < 5; number++) Local(f, $"images/s{number}.png");
+        Serve(f, Enumerable.Range(0, 5).Select(number => File($"s{number}.png", MissingFileKind.Image, "world/images/")).ToList());
+        f.Fake.FakeBackupFileBrowser.UploadAnswer = (_, _) => null;
+        ImportMissingWindow window = Open(f);
+        window.ImporterOptions = new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromSeconds(5), UploadAnswerTimeout = TimeSpan.FromMilliseconds(40), RightsTimeout = TimeSpan.FromSeconds(5) };
+        await FindAsync(window);
+        TestUi.Click(TestUi.Find<Button>(window, "UploadButton"));
+        TestUi.FindDialog().Accept();
+        await TestUi.WaitUntilAsync(() => window.Running.IsCompleted && !window.IsBusy, what: "the run");
+        Assert.Equal(3, f.Fake.CallsTo("BackupFileBrowser.UploadAsync").Count());
+        Assert.Contains("did not answer 3 uploads in a row", window.StatusText, StringComparison.Ordinal);
+        Assert.Equal(3, window.Items.Count(item => item.Result?.Outcome == ImportOutcome.NoAnswer));
+        Assert.Equal(2, window.Items.Count(item => item.Result is null));
+    }
+
+    [AvaloniaFact]
+    public async Task A_backup_is_refused_while_import_missing_searches()
+    {
+        using var f = new Fixture();
+        MakeLocalFiles(f);
+        Serve(f, Sample(), answer: false);
+        ImportMissingWindow window = Open(f);
+        TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
+        Assert.True(window.IsBusy);
+        var backup = (ServerBackupWindow)f.Context.OpenTool(ToolIds.ServerBackup)!;
+        TestUi.Find<TextBox>(backup, "FolderBox").Text = Path.Combine(f.Test.Environment.Root, "backup");
+        await backup.StartAsync();
+        Assert.Contains(backup.LogLines, line => line.Contains("Import Missing is searching or uploading", StringComparison.Ordinal));
+        Assert.False(backup.IsRunning);
+        f.Fake.RaiseMissingFiles([]);
+        await window.Running;
+    }
+
+    [AvaloniaFact]
     public async Task The_servers_refusal_and_an_empty_result_are_told()
     {
         using var f = new Fixture();
