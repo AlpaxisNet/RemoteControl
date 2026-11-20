@@ -335,6 +335,36 @@ public sealed class EngineTests
     }
 
     [Fact]
+    public async Task AFolderTheServerRefusesStaysInTheSelection()
+    {
+        // Alpaxis answers a folder it does not open for the account with its reason and an empty listing. That is no empty folder:
+        // taken for one, the folder left the saved selection for good, also after the right came back.
+        FakeServer server = StandardServer();
+        server.RefusedFolders["gone"] = true;
+        await using SyncHarness harness = await SyncHarness.CreateAsync(Everything() with { FileFolders = "levels; gone" }, server);
+        await harness.SyncNowAsync();
+        await harness.WaitUntilAsync(() => harness.Engine.Snapshot.Phase == "Sync complete", "the end of the pass");
+
+        SyncSnapshot last = await harness.SnapshotAsync();
+        Assert.Contains(harness.Session.CallsTo("SyncFileBrowser.ChangeFolderAsync"), call => call.Argument<string>(0).Trim('/') == "gone");
+        Assert.Equal(["gone", "levels"], SyncNames.SplitFolders(last.Settings.FileFolders));
+        Assert.Equal("abc", harness.ReadLocal("files/levels/a.nw"));
+    }
+
+    [Fact]
+    public async Task AnEmptyFolderLeavesTheSelection()
+    {
+        FakeServer server = StandardServer();
+        server.Listings["bare"] = [];
+        await using SyncHarness harness = await SyncHarness.CreateAsync(Everything() with { FileFolders = "levels; bare" }, server);
+        await harness.SyncNowAsync();
+        await harness.WaitUntilAsync(() => harness.Engine.Snapshot.Phase == "Sync complete", "the end of the pass");
+
+        SyncSnapshot last = await harness.SnapshotAsync();
+        Assert.Equal(["levels"], SyncNames.SplitFolders(last.Settings.FileFolders));
+    }
+
+    [Fact]
     public async Task DisconnectStopsCleanlyAndAReattachContinues()
     {
         FakeServer server = StandardServer();

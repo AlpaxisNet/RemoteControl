@@ -53,6 +53,21 @@ public sealed partial class SyncEngine
 
     private void HandleFoldersReceived(FileBrowserFolder[] folders) => _rootsWaiter?.TrySetResult(folders);
 
+    /// <summary>
+    /// A server that answers every request (Alpaxis since November 2026) says why it does not open a folder for the account,
+    /// "Folder levels/ is not in your folder rights", and then sends an empty listing for it so that nothing waits. The folder that
+    /// is being listed is remembered as refused: its empty listing is no empty folder.
+    /// </summary>
+    private void HandleFileBrowserMessage(string message)
+    {
+        const string start = "Folder ";
+        const string end = " is not in your folder rights";
+        if (_listingWaiter is not { } waiter) return;
+        string text = message.Trim();
+        if (text.Length <= start.Length + end.Length || !text.StartsWith(start, StringComparison.Ordinal) || !text.EndsWith(end, StringComparison.Ordinal)) return;
+        if (FolderKey(text[start.Length..^end.Length]) == waiter.Key) _refusedFolders.Add(waiter.Key);
+    }
+
     private void HandleFilesReceived(string folder, FileBrowserEntry[] files)
     {
         if (_listingWaiter is { } waiter && FolderKey(folder) == waiter.Key) waiter.Completion.TrySetResult(files);
@@ -354,7 +369,13 @@ public sealed partial class SyncEngine
         }
 
         MarkManifestDirty();
-        if (!probeOnly && folderCount == 0 && fileCount == 0)
+        if (!probeOnly && folderCount == 0 && fileCount == 0 && _refusedFolders.Contains(FolderKey(folder)))
+        {
+            // The listing is empty because the server does not open the folder for this account (it said so), not because the folder
+            // is empty: the selection is the user's and stays, so that the folder is synchronised again once the right is back.
+            Log("The server does not open " + folder + " for this account; it stays selected");
+        }
+        else if (!probeOnly && folderCount == 0 && fileCount == 0)
         {
             List<string> selected = SyncNames.SplitFolders(_settings.FileFolders).ToList();
             if (selected.Remove(folder))

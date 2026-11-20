@@ -86,6 +86,9 @@ public sealed partial class SyncEngine : IDisposable, IAsyncDisposable
     private TaskCompletionSource? _wake;
     private FileSystemWatcher? _watcher;
     private IReadOnlyList<string>? _passRoots;
+
+    /// <summary>The folders (by <c>FolderKey</c>) the server said it does not open for this account, during the pass that runs.</summary>
+    private readonly HashSet<string> _refusedFolders = new(StringComparer.Ordinal);
     private DateTime _gitPullRetryAt;
     private DateTime _gitPulledAt;
     private bool _autoCommitRunning;
@@ -932,6 +935,7 @@ public sealed partial class SyncEngine : IDisposable, IAsyncDisposable
             session.ServerOptionsReceived += OnServerOptions;
             session.ServerFlagsReceived += OnServerFlags;
             session.FolderConfigReceived += OnFolderConfig;
+            session.FileBrowserMessageReceived += OnFileBrowserMessage;
             _browser.FoldersReceived += OnFoldersReceived;
             _browser.FilesReceived += OnFilesReceived;
             _browser.TransferProgressChanged += OnTransferProgress;
@@ -947,6 +951,7 @@ public sealed partial class SyncEngine : IDisposable, IAsyncDisposable
             _session.ServerOptionsReceived -= OnServerOptions;
             _session.ServerFlagsReceived -= OnServerFlags;
             _session.FolderConfigReceived -= OnFolderConfig;
+            _session.FileBrowserMessageReceived -= OnFileBrowserMessage;
             _browser.FoldersReceived -= OnFoldersReceived;
             _browser.FilesReceived -= OnFilesReceived;
             _browser.TransferProgressChanged -= OnTransferProgress;
@@ -968,6 +973,8 @@ public sealed partial class SyncEngine : IDisposable, IAsyncDisposable
         private void OnServerFlags(object? sender, TextEventArgs e) => On(() => _engine.HandleConfigReceived(SyncConfigKind.ServerFlags, e.Text));
 
         private void OnFolderConfig(object? sender, TextEventArgs e) => On(() => _engine.HandleConfigReceived(SyncConfigKind.FolderConfig, e.Text));
+
+        private void OnFileBrowserMessage(object? sender, TextEventArgs e) => On(() => _engine.HandleFileBrowserMessage(e.Text));
 
         private void OnFoldersReceived(object? sender, ValueEventArgs<IReadOnlyList<FileBrowserFolder>> e)
         {

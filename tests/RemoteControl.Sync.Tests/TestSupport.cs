@@ -51,6 +51,12 @@ internal sealed class FakeServer
 
     public ConcurrentDictionary<string, bool> SilentFolders { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Folders the server does not open for the account. It answers as Alpaxis does since November 2026: the reason as a file
+    /// browser message, then an empty listing of the folder as it was asked for.
+    /// </summary>
+    public ConcurrentDictionary<string, bool> RefusedFolders { get; } = new(StringComparer.Ordinal);
+
     public void AddFile(string remote, string content, long modified)
     {
         string folder = SyncNames.ParentOf(remote);
@@ -307,7 +313,12 @@ internal sealed class SyncHarness : IAsyncDisposable
             {
                 string folder = call.Argument<string>(0);
                 string key = folder.Trim('/');
-                if (!Server.SilentFolders.ContainsKey(key) && Server.Listings.TryGetValue(key, out FileBrowserEntry[]? entries))
+                if (Server.RefusedFolders.ContainsKey(key))
+                {
+                    session.RaiseFileBrowserMessage("Folder " + folder + " is not in your folder rights");
+                    session.FakeSyncFileBrowser.RaiseFilesReceived(folder, []);
+                }
+                else if (!Server.SilentFolders.ContainsKey(key) && Server.Listings.TryGetValue(key, out FileBrowserEntry[]? entries))
                     session.FakeSyncFileBrowser.RaiseFilesReceived(folder, entries);
                 break;
             }

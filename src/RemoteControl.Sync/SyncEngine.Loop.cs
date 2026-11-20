@@ -314,6 +314,7 @@ public sealed partial class SyncEngine
         _progressUnseen = true;
         _downloadsThisPass = 0;
         _passRoots = null;
+        _refusedFolders.Clear();
         _nextPull = DateTime.UtcNow + _options.PullInterval;
         if (!forced && !_settings.DownloadsAllowed)
         {
@@ -345,6 +346,7 @@ public sealed partial class SyncEngine
         {
             _downloadsForced = false;
             _passRoots = null;
+            _refusedFolders.Clear();
             Notify();
         }
     }

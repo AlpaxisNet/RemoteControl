@@ -170,6 +170,8 @@ On purpose:
   in the text editor.
 - Sync remembers what was last synchronised, so an edit made while the program was closed is not overwritten; a conflict keeps
   your file and puts the server's copy into `.graal-sync/conflicts/`; more than ten deletions at once wait for your confirmation.
+  A folder the server does not open for the account any more stays among the folders you chose (the log says so): only a folder
+  that is really empty leaves them.
 - HTML in private messages is shown as text; nothing is ever loaded from the network for a message.
 - On Windows the options, logs and message history moved from the program's folder to the user folder (the old options file is
   read once and copied).
