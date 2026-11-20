@@ -1,9 +1,9 @@
 namespace RemoteControl.Protocol.Session;
 
 /// <summary>
-/// One consumer's view of the server's file browser. A session has three: <see cref="IRcSession.FileBrowser"/> for the windows,
-/// <see cref="IRcSession.SyncFileBrowser"/> for the folder synchroniser and <see cref="IRcSession.BackupFileBrowser"/> for the server
-/// backup. Each view has its own folder list, file list and events; a reply goes to the view whose request it answers, so no view
+/// One consumer's view of the server's file browser. A session has four: <see cref="IRcSession.FileBrowser"/> for the windows,
+/// <see cref="IRcSession.SyncFileBrowser"/> for the folder synchroniser, <see cref="IRcSession.BackupFileBrowser"/> for the server
+/// backup and <see cref="IRcSession.McpFileBrowser"/> for the MCP server. Each view has its own folder list, file list and events; a reply goes to the view whose request it answers, so no view
 /// sees the listings and downloads of another. Paths are <c>folder/name</c>; the server works on bare names in its current folder, so an operation on another
 /// folder first changes the server's folder.
 /// </summary>
