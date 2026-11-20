@@ -537,6 +537,9 @@ public sealed partial class RcSession
                     // ban texts unanswered; a newer one answers them to an RC program in any case. Say once what was refused.
                     if (parts.Count >= 3 && parts[2] == "0") Refuse("The server refused the client RC" + (parts.Count > 3 && parts[3].Length > 0 ? ": " + parts[3] : string.Empty) + ". An older Alpaxis server answers ban requests only with it.");
                     break;
+                case "missingfiles":
+                    HandleMissingFilesText(parts);
+                    break;
                 case "pmserverplayers" when parts.Count >= 3:
                     Raise(PmServerPlayersReceived, new PmServerPlayersEventArgs(parts[2], string.Join('\n', parts.Skip(3))));
                     break;

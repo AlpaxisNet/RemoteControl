@@ -115,6 +115,55 @@ public sealed record FileBrowserFolder(string Rights, string Pattern)
             return slash < 0 ? string.Empty : Pattern[..(slash + 1)];
         }
     }
+
+    /// <summary>Whether the rights contain <c>w</c>: files may be uploaded into the folder.</summary>
+    public bool AllowsWrite => Rights.Contains('w', StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether this rule covers the file <paramref name="name"/> in <paramref name="folder"/>, as the game server decides it: the pattern's
+    /// folder part equals the folder without regard to case (slashes at either end do not count), and the pattern's last part matches the
+    /// name (<c>*</c> for any run of characters, <c>?</c> for one character, without regard to case).
+    /// </summary>
+    /// <param name="folder">The folder, e.g. <c>world/heads/</c>.</param>
+    /// <param name="name">The bare file name.</param>
+    /// <returns>Whether the rule covers it.</returns>
+    public bool Covers(string folder, string name)
+    {
+        static string Key(string text) => text.Replace('\\', '/').Trim('/');
+        int slash = Pattern.LastIndexOf('/');
+        string filePart = slash < 0 ? Pattern : Pattern[(slash + 1)..];
+        return string.Equals(Key(Folder), Key(folder), StringComparison.OrdinalIgnoreCase) && WildcardMatches(filePart, name);
+    }
+
+    private static bool WildcardMatches(string pattern, string text)
+    {
+        int p = 0, t = 0, star = -1, mark = 0;
+        while (t < text.Length)
+        {
+            if (p < pattern.Length && (pattern[p] == '?' || char.ToUpperInvariant(pattern[p]) == char.ToUpperInvariant(text[t])) && pattern[p] != '*')
+            {
+                p++;
+                t++;
+            }
+            else if (p < pattern.Length && pattern[p] == '*')
+            {
+                star = p++;
+                mark = t;
+            }
+            else if (star >= 0)
+            {
+                p = star + 1;
+                t = ++mark;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        while (p < pattern.Length && pattern[p] == '*') p++;
+        return p == pattern.Length;
+    }
 }
 
 /// <summary>A file of a folder listing.</summary>

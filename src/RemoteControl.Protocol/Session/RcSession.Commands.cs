@@ -228,6 +228,13 @@ public sealed partial class RcSession
     public Task<bool> RequestBanTypesAsync() => Run(() => SendBanTextNow(() => SendListerTextNow("bantypes", null, ClientPacketId.RequestText)), false);
 
     /// <inheritdoc />
+    public Task<bool> RequestMissingFilesAsync() => Run(() =>
+    {
+        ResetMissingFiles();
+        return SendRcNow(ClientPacketId.RequestText, writer => writer.WriteText(Tokenized("GraalEngine", "missingfiles")));
+    }, false);
+
+    /// <inheritdoc />
     public Task<bool> RequestBanHistoryAsync(string account) => Run(() => SendBanTextNow(() => SendListerTextNow("getbanhistory", account, ClientPacketId.SendText)), false);
 
     /// <inheritdoc />

@@ -136,6 +136,9 @@ public sealed partial class RcSession : IRcSession
     public event EventHandler<TextEventArgs>? ServerTextReceived;
 
     /// <inheritdoc />
+    public event EventHandler<MissingFilesEventArgs>? MissingFilesReceived;
+
+    /// <inheritdoc />
     public event EventHandler<ServerDataEventArgs>? ServerDataReceived;
 
     /// <inheritdoc />

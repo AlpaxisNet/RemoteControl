@@ -334,6 +334,9 @@ public sealed class FakeRcSession : IRcSession
     public event EventHandler<TextEventArgs>? FileBrowserMessageReceived;
 
     /// <inheritdoc />
+    public event EventHandler<MissingFilesEventArgs>? MissingFilesReceived;
+
+    /// <inheritdoc />
     public event EventHandler<ValueEventArgs<int>>? WeaponListReceived;
 
     /// <inheritdoc />
@@ -592,6 +595,14 @@ public sealed class FakeRcSession : IRcSession
         Fire(MaxUploadFileSizeReceived, new ValueEventArgs<long>(size));
     }
 
+    /// <summary>Raises <see cref="MissingFilesReceived"/> with a list, as the session does after the last part.</summary>
+    /// <param name="files">The files.</param>
+    public void RaiseMissingFiles(IEnumerable<MissingFile> files) => Fire(MissingFilesReceived, new MissingFilesEventArgs(files.ToArray()));
+
+    /// <summary>Raises <see cref="MissingFilesReceived"/> with the server's refusal (<c>missingfiles,error,&lt;sentence&gt;</c>).</summary>
+    /// <param name="error">The sentence.</param>
+    public void RaiseMissingFilesError(string error) => Fire(MissingFilesReceived, new MissingFilesEventArgs(error));
+
     /// <summary>Raises <see cref="FileBrowserMessageReceived"/>.</summary>
     /// <param name="text">The message.</param>
     public void RaiseFileBrowserMessage(string text) => Fire(FileBrowserMessageReceived, new TextEventArgs(text));
@@ -818,6 +829,9 @@ public sealed class FakeRcSession : IRcSession
 
     /// <inheritdoc />
     public Task<bool> RequestBanTypesAsync() => Send(nameof(RequestBanTypesAsync));
+
+    /// <inheritdoc />
+    public Task<bool> RequestMissingFilesAsync() => Send(nameof(RequestMissingFilesAsync));
 
     /// <inheritdoc />
     public Task<bool> RequestBanHistoryAsync(string account) => Send(nameof(RequestBanHistoryAsync), account);

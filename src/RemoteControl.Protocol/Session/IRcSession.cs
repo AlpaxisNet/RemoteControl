@@ -141,6 +141,12 @@ public interface IRcSession : IDisposable
     /// <summary>A server text nothing else handled (RClib <c>on_server_data("server_text")</c>).</summary>
     event EventHandler<TextEventArgs>? ServerTextReceived;
 
+    /// <summary>
+    /// The server's answer to <see cref="RequestMissingFilesAsync"/>: raised once, on the session's context, when the last part has
+    /// arrived (the list) or when the server refused (<see cref="MissingFilesEventArgs.Error"/>).
+    /// </summary>
+    event EventHandler<MissingFilesEventArgs>? MissingFilesReceived;
+
     /// <summary>Other server data RClib reported through <c>on_server_data</c> (bomb add, board packet, status list, staff guilds, deprecated account packets ...).</summary>
     event EventHandler<ServerDataEventArgs>? ServerDataReceived;
 
@@ -446,6 +452,14 @@ public interface IRcSession : IDisposable
     /// <summary>Requests the ban types (RClib <c>rc_request_ban_types</c>).</summary>
     /// <returns>Whether it was sent.</returns>
     Task<bool> RequestBanTypesAsync();
+
+    /// <summary>
+    /// Asks the game server for the files its NPCs, weapons, classes and animations name and it does not have (the search of the chat
+    /// command <c>/findmissing</c>, with the same right), each with the folder it belongs in. The answer arrives as one
+    /// <see cref="MissingFilesReceived"/>; a server that does not know the request (an older one) never answers it.
+    /// </summary>
+    /// <returns>Whether it was sent.</returns>
+    Task<bool> RequestMissingFilesAsync();
 
     /// <summary>Requests an account's ban history (RClib <c>rc_request_ban_history</c>).</summary>
     /// <param name="account">The account.</param>

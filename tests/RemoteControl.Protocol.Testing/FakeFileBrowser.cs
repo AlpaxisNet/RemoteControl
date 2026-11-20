@@ -27,6 +27,20 @@ public sealed class FakeFileBrowser : IRcFileBrowser
     /// <inheritdoc />
     public bool IsSync { get; }
 
+    /// <summary>
+    /// When set, the fake plays the game server's answer to every upload (message 67 of the session's
+    /// <see cref="FakeRcSession.FileBrowserMessageReceived"/>, raised before the upload call returns): the account needs a folder right with
+    /// <c>w</c> that covers the folder and the name, a file over <see cref="FakeRcSession.MaxUploadFileSize"/> is refused, and otherwise
+    /// <c>Uploaded file NAME</c> (<c>Uploaded large file NAME</c> over 32,000 bytes) is answered. A refused upload is not stored.
+    /// </summary>
+    public bool ServerAnswersUploads { get; set; }
+
+    /// <summary>
+    /// With <see cref="ServerAnswersUploads"/>: lets a test replace the answer of one upload (the path as passed, the content); return the
+    /// message text, or <c>null</c> for no answer at all (a server that never says anything), or <c>"\0"</c> for the default answer.
+    /// </summary>
+    public Func<string, byte[], string?>? UploadAnswer { get; set; }
+
     /// <summary>The folders (settable list behind <see cref="Folders"/>).</summary>
     public List<FileBrowserFolder> FolderList { get; } = new();
 
@@ -110,8 +124,25 @@ public sealed class FakeFileBrowser : IRcFileBrowser
     {
         byte[] bytes = content.ToArray();
         Task<bool> result = Send(nameof(UploadAsync), path, bytes);
-        if (result.Result) RemoteFiles[path] = bytes;
+        if (!result.Result) return result;
+        string? answer = ServerAnswersUploads ? AnswerFor(path, bytes) : null;
+        bool refused = answer is not null && answer.StartsWith("Could not upload", StringComparison.Ordinal);
+        if (!refused) RemoteFiles[path] = bytes;
+        if (answer is not null) _session.RaiseFileBrowserMessage(answer);
         return result;
+    }
+
+    private string? AnswerFor(string path, byte[] bytes)
+    {
+        string? custom = UploadAnswer?.Invoke(path, bytes);
+        if (UploadAnswer is not null && custom != "\0") return custom;
+        int slash = path.LastIndexOf('/');
+        string folder = slash < 0 ? CurrentFolder : path[..(slash + 1)];
+        string name = path[(slash + 1)..];
+        string full = folder + name;
+        if (!FolderList.Any(rule => rule.AllowsWrite && rule.Covers(folder, name))) return $"Could not upload {full}: not in your folder rights";
+        if (bytes.Length > _session.MaxUploadFileSize) return $"Could not upload {full}: larger than 20 MiB";
+        return (bytes.Length > 32000 ? "Uploaded large file " : "Uploaded file ") + name;
     }
 
     /// <inheritdoc />
