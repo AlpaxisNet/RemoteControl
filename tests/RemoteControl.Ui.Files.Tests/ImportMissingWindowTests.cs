@@ -44,10 +44,18 @@ public sealed class ImportMissingWindowTests
         };
     }
 
-    private static ImportMissingWindow Open(Fixture f, bool withFolder = true, bool short_ = true)
+    /// <summary>
+    /// The time for a first answer in a test whose server stays silent until the test itself ends the wait (with the result, by
+    /// closing, by cancelling). The 200 milliseconds of the other tests are for those that want the wait to run out: on a slow
+    /// machine they ran out here too, in the middle of the test, and the second Find of a test then rightly started a second search
+    /// (the Linux build machine, 2026-11-20).
+    /// </summary>
+    private static readonly TimeSpan Patient = TimeSpan.FromSeconds(60);
+
+    private static ImportMissingWindow Open(Fixture f, bool withFolder = true, bool short_ = true, TimeSpan? requestTimeout = null)
     {
         var window = (ImportMissingWindow)f.Context.OpenTool(ToolIds.ImportMissing)!;
-        if (short_) window.ImporterOptions = new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(200), UploadAnswerTimeout = TimeSpan.FromSeconds(10), RightsTimeout = TimeSpan.FromSeconds(5) };
+        if (short_) window.ImporterOptions = new MissingFilesImporterOptions { RequestTimeout = requestTimeout ?? TimeSpan.FromMilliseconds(200), UploadAnswerTimeout = TimeSpan.FromSeconds(10), RightsTimeout = TimeSpan.FromSeconds(5) };
         if (withFolder)
         {
             Directory.CreateDirectory(Ugd(f));
@@ -190,11 +198,13 @@ public sealed class ImportMissingWindowTests
         using var f = new Fixture();
         MakeLocalFiles(f);
         Serve(f, Sample(), answer: false);
-        ImportMissingWindow window = Open(f);
+        ImportMissingWindow window = Open(f, requestTimeout: Patient);
         TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
         Assert.True(window.IsBusy);
         Assert.False(TestUi.Find<Button>(window, "FindButton").IsEnabled);
         Assert.True(TestUi.Find<Button>(window, "CancelButton").IsEnabled);
+        // The folder is checked off the thread first: the second Find comes when the first one's request is out.
+        await TestUi.WaitUntilAsync(() => f.Fake.CallsTo("RequestMissingFilesAsync").Any(), what: "the first request");
         Task second = window.FindAsync();
         await second;
         TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
@@ -323,7 +333,7 @@ public sealed class ImportMissingWindowTests
         using var f = new Fixture();
         MakeLocalFiles(f);
         Serve(f, Sample(), answer: false);
-        ImportMissingWindow window = Open(f);
+        ImportMissingWindow window = Open(f, requestTimeout: Patient);
         TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
         Assert.True(window.IsBusy);
         var backup = (ServerBackupWindow)f.Context.OpenTool(ToolIds.ServerBackup)!;
@@ -507,7 +517,7 @@ public sealed class ImportMissingWindowTests
         using var f = new Fixture();
         MakeLocalFiles(f);
         Serve(f, Sample(), answer: false);
-        ImportMissingWindow window = Open(f);
+        ImportMissingWindow window = Open(f, requestTimeout: Patient);
         TestUi.Click(TestUi.Find<Button>(window, "FindButton"));
         Assert.True(window.IsBusy);
         TestUi.Click(TestUi.Find<Button>(window, "CloseButton"));
