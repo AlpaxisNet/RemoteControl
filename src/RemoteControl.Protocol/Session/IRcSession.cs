@@ -147,6 +147,13 @@ public interface IRcSession : IDisposable
     /// </summary>
     event EventHandler<MissingFilesEventArgs>? MissingFilesReceived;
 
+    /// <summary>
+    /// The server's first signs of life for <see cref="RequestMissingFilesAsync"/>, raised on the session's context: <c>searching</c> (sent at
+    /// once when the server took the request; the result follows when the search is done, however long that takes) and every part of the
+    /// result that is accepted before the last. <see cref="MissingFilesReceived"/> comes after them.
+    /// </summary>
+    event EventHandler<MissingFilesProgressEventArgs>? MissingFilesProgress;
+
     /// <summary>Other server data RClib reported through <c>on_server_data</c> (bomb add, board packet, status list, staff guilds, deprecated account packets ...).</summary>
     event EventHandler<ServerDataEventArgs>? ServerDataReceived;
 
@@ -456,7 +463,8 @@ public interface IRcSession : IDisposable
     /// <summary>
     /// Asks the game server for the files its NPCs, weapons, classes and animations name and it does not have (the search of the chat
     /// command <c>/findmissing</c>, with the same right), each with the folder it belongs in. The answer arrives as one
-    /// <see cref="MissingFilesReceived"/>; a server that does not know the request (an older one) never answers it.
+    /// <see cref="MissingFilesReceived"/>; a server that does not know the request (an older one) never answers it, a server that does answers
+    /// at once with <see cref="MissingFilesProgress"/> (<c>searching</c>).
     /// </summary>
     /// <returns>Whether it was sent.</returns>
     Task<bool> RequestMissingFilesAsync();

@@ -122,7 +122,7 @@ public sealed record FileBrowserFolder(string Rights, string Pattern)
     /// <summary>
     /// Whether this rule covers the file <paramref name="name"/> in <paramref name="folder"/>, as the game server decides it: the pattern's
     /// folder part equals the folder without regard to case (slashes at either end do not count), and the pattern's last part matches the
-    /// name (<c>*</c> for any run of characters, <c>?</c> for one character, without regard to case).
+    /// name (a pattern that ends in a slash covers every file of its folder, as the server's <c>FolderRight.TryParse</c> reads it; <c>*</c> for any run of characters, <c>?</c> for one character, without regard to case).
     /// </summary>
     /// <param name="folder">The folder, e.g. <c>world/heads/</c>.</param>
     /// <param name="name">The bare file name.</param>
@@ -132,6 +132,7 @@ public sealed record FileBrowserFolder(string Rights, string Pattern)
         static string Key(string text) => text.Replace('\\', '/').Trim('/');
         int slash = Pattern.LastIndexOf('/');
         string filePart = slash < 0 ? Pattern : Pattern[(slash + 1)..];
+        if (filePart.Length == 0) filePart = "*";
         return string.Equals(Key(Folder), Key(folder), StringComparison.OrdinalIgnoreCase) && WildcardMatches(filePart, name);
     }
 

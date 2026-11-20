@@ -342,6 +342,9 @@ public sealed class FakeRcSession : IRcSession
     public event EventHandler<MissingFilesEventArgs>? MissingFilesReceived;
 
     /// <inheritdoc />
+    public event EventHandler<MissingFilesProgressEventArgs>? MissingFilesProgress;
+
+    /// <inheritdoc />
     public event EventHandler<ValueEventArgs<int>>? WeaponListReceived;
 
     /// <inheritdoc />
@@ -603,6 +606,14 @@ public sealed class FakeRcSession : IRcSession
     /// <summary>Raises <see cref="MissingFilesReceived"/> with a list, as the session does after the last part.</summary>
     /// <param name="files">The files.</param>
     public void RaiseMissingFiles(IEnumerable<MissingFile> files) => Fire(MissingFilesReceived, new MissingFilesEventArgs(files.ToArray()));
+
+    /// <summary>Raises <see cref="MissingFilesProgress"/> for the server's <c>missingfiles,searching</c>.</summary>
+    public void RaiseMissingFilesSearching() => Fire(MissingFilesProgress, new MissingFilesProgressEventArgs());
+
+    /// <summary>Raises <see cref="MissingFilesProgress"/> for a part of the result that is not the last.</summary>
+    /// <param name="part">The part's number.</param>
+    /// <param name="parts">How many parts the result has.</param>
+    public void RaiseMissingFilesPart(int part, int parts) => Fire(MissingFilesProgress, new MissingFilesProgressEventArgs(part, parts));
 
     /// <summary>Raises <see cref="MissingFilesReceived"/> with the server's refusal (<c>missingfiles,error,&lt;sentence&gt;</c>).</summary>
     /// <param name="error">The sentence.</param>

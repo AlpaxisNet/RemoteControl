@@ -180,8 +180,14 @@ public sealed partial class RcSession
                 HandleDirectory(payload);
                 break;
             case ServerPacketId.FileBrowserMessage:
-                Raise(FileBrowserMessageReceived, new TextEventArgs(reader.ReadRemainingCommaText()));
+            {
+                string message = reader.ReadRemainingCommaText();
+                // The server refused a change of folder and has no folder open now: the next operation must change the folder again.
+                if (message.StartsWith("Folder ", StringComparison.Ordinal) && message.EndsWith(" is not in your folder rights", StringComparison.Ordinal))
+                    _serverFolder = string.Empty;
+                Raise(FileBrowserMessageReceived, new TextEventArgs(message));
                 break;
+            }
             case ServerPacketId.LargeFileStart:
                 LargeFileStart(FirstLine(reader.ReadRemainingText()));
                 break;

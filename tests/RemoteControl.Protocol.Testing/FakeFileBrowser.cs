@@ -140,9 +140,57 @@ public sealed class FakeFileBrowser : IRcFileBrowser
         string folder = slash < 0 ? CurrentFolder : path[..(slash + 1)];
         string name = path[(slash + 1)..];
         string full = folder + name;
-        if (!FolderList.Any(rule => rule.AllowsWrite && rule.Covers(folder, name))) return $"Could not upload {full}: not in your folder rights";
-        if (bytes.Length > _session.MaxUploadFileSize) return $"Could not upload {full}: larger than 20 MiB";
+        if (!FolderList.Any(rule => ServerRuleFolder(rule) == folder.Replace('\\', '/').Trim('/')))
+        {
+            // The server refuses a change to a folder that no right names, has no folder open, and then answers the upload itself.
+            _session.RaiseFileBrowserMessage($"Folder {folder} is not in your folder rights");
+            return $"Could not upload {name}: no folder open";
+        }
+
+        if (!FolderList.Any(rule => ServerRuleAllowsWrite(rule, folder, name))) return $"Could not upload {full}: not in your folder rights";
+        if (_session.MaxUploadFileSize > 0 && bytes.Length > _session.MaxUploadFileSize) return $"Could not upload {full}: larger than 20 MiB";
         return (bytes.Length > 32000 ? "Uploaded large file " : "Uploaded file ") + name;
+    }
+
+    /// <summary>
+    /// The game server's rule for a folder right (<c>FolderRight.TryParse</c> and <c>Allows</c> of the Alpaxis game server), written out here
+    /// and not taken from <see cref="FileBrowserFolder.Covers"/>, so that a test can see the two differ: a row whose pattern ends in a slash
+    /// has the wildcard <c>*</c> in the folder named; any other row has the text after its last slash as wildcard (a row without a slash is no
+    /// rule); the folder must equal the file's folder and the wildcard match the name without regard to case.
+    /// </summary>
+    /// <param name="rule">The right.</param>
+    /// <param name="folder">The folder of the file, e.g. <c>world/heads/</c>.</param>
+    /// <param name="name">The file's name.</param>
+    /// <returns>Whether the server accepts a write of the file for this right.</returns>
+    public static bool ServerRuleAllowsWrite(FileBrowserFolder rule, string folder, string name)
+    {
+        string path = rule.Pattern.Trim().Replace('\\', '/');
+        if (!rule.Rights.Contains('w') || path.Length == 0 || path.Contains(':') || path.StartsWith('/')) return false;
+        string wildcard = "*";
+        string directory = path;
+        if (!directory.EndsWith('/'))
+        {
+            int slash = directory.LastIndexOf('/');
+            if (slash < 0) return false;
+            wildcard = directory[(slash + 1)..];
+            directory = directory[..(slash + 1)];
+        }
+
+        if (wildcard.Length == 0 || directory.Split('/', StringSplitOptions.RemoveEmptyEntries).Any(part => part is "." or "..")) return false;
+        string wanted = folder.Replace('\\', '/').Trim('/');
+        return directory.TrimEnd('/').Equals(wanted, StringComparison.Ordinal) && System.IO.Enumeration.FileSystemName.MatchesSimpleExpression(wildcard, name);
+    }
+
+    private static string ServerRuleFolder(FileBrowserFolder rule)
+    {
+        string path = rule.Pattern.Trim().Replace('\\', '/');
+        if (!path.EndsWith('/'))
+        {
+            int slash = path.LastIndexOf('/');
+            path = slash < 0 ? string.Empty : path[..(slash + 1)];
+        }
+
+        return path.Trim('/');
     }
 
     /// <inheritdoc />

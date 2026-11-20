@@ -204,6 +204,53 @@ public sealed class MissingFilesTests
     }
 
     [Fact]
+    public async Task Searching_and_the_parts_before_the_last_are_signs_of_life_and_not_a_result()
+    {
+        (List<MissingFilesEventArgs> events, _, RcSession session, FakeConnection client, FakeGameServer server) = await StartAsync();
+        var progress = new List<MissingFilesProgressEventArgs>();
+        session.MissingFilesProgress += (_, e) => progress.Add(e);
+        await using (server)
+        using (session)
+        {
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "missingfiles", "searching");
+            await BarrierAsync(session, client, "one");
+            Assert.True(Assert.Single(progress).Searching);
+            Assert.Empty(events);
+
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "missingfiles", "part", "1", "2", Row("a.png", "image", "world/images/", "1", "level a.nw"));
+            await BarrierAsync(session, client, "two");
+            Assert.Equal((1, 2), (progress[1].Part, progress[1].Parts));
+            Assert.False(progress[1].Searching);
+            Assert.Empty(events);
+
+            await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "missingfiles", "part", "2", "2", Row("b.png", "image", "world/images/", "1", "level a.nw"));
+            await BarrierAsync(session, client, "three");
+            Assert.Equal(2, Assert.Single(events).Files.Count);
+            Assert.Equal(2, progress.Count);
+        }
+    }
+
+    [Fact]
+    public async Task The_servers_refusal_of_a_folder_makes_the_next_upload_change_the_folder_again()
+    {
+        await using var server = new FakeGameServer();
+        (RcSession session, FakeConnection client) = await ConnectAsync(server);
+        using (session)
+        {
+            byte[] content = "abc"u8.ToArray();
+            Assert.True(await session.BackupFileBrowser.UploadAsync("world/x/a.png", content).Within());
+            Assert.True(await session.BackupFileBrowser.UploadAsync("world/x/b.png", content).Within());
+            Assert.Equal(1, client.Received.Count(packet => packet.Id == (int)ClientPacketId.FileBrowserCd && packet.Text == "world/x/"));
+
+            Task<TextEventArgs> refusal = Next<TextEventArgs>(h => session.FileBrowserMessageReceived += h, h => session.FileBrowserMessageReceived -= h, e => e.Text.StartsWith("Folder ", StringComparison.Ordinal));
+            await client.SendAsync(ServerPacketId.FileBrowserMessage, RcText.GetBytes(CommaText.Tokenize("Folder world/x/ is not in your folder rights")));
+            await refusal.Within();
+            Assert.True(await session.BackupFileBrowser.UploadAsync("world/x/c.png", content).Within());
+            await Eventually(() => client.Received.Count(packet => packet.Id == (int)ClientPacketId.FileBrowserCd && packet.Text == "world/x/") == 2);
+        }
+    }
+
+    [Fact]
     public void A_rule_covers_a_file_when_the_folder_is_equal_and_the_name_matches()
     {
         var rule = new FileBrowserFolder("rw", "world/heads/head*.png");
@@ -217,6 +264,9 @@ public sealed class MissingFilesTests
         Assert.True(new FileBrowserFolder("r", "world/*").Covers("world/", "x"));
         Assert.False(new FileBrowserFolder("r", "world/*").AllowsWrite);
         Assert.True(new FileBrowserFolder("rw", "world/*").AllowsWrite);
+        // A pattern that ends in a slash covers every file of its folder (the server reads its wildcard as "*").
+        Assert.True(new FileBrowserFolder("rw", "world/heads/").Covers("world/heads/", "any name.png"));
+        Assert.False(new FileBrowserFolder("rw", "world/heads/").Covers("world/heads/sub/", "a.png"));
     }
 
     [Fact]
@@ -231,6 +281,11 @@ public sealed class MissingFilesTests
         Assert.Single(session.CallsTo(nameof(IRcSession.RequestMissingFilesAsync)));
         session.RaiseMissingFiles(new[] { new MissingFile("a.png", MissingFileKind.Image, "world/images/", 1, "level a.nw") });
         session.RaiseMissingFilesError("No right.");
+        var progress = new List<MissingFilesProgressEventArgs>();
+        session.MissingFilesProgress += (_, e) => progress.Add(e);
+        session.RaiseMissingFilesSearching();
+        session.RaiseMissingFilesPart(1, 3);
+        Assert.Equal(new[] { true, false }, progress.Select(item => item.Searching).ToArray());
         Assert.Equal("a.png", Assert.Single(events[0].Files).Name);
         Assert.Equal("No right.", events[1].Error);
 

@@ -68,3 +68,33 @@ public sealed class MissingFilesEventArgs : EventArgs
     /// <summary>The server's sentence when the request was refused or the search failed (no right, a search is running already); otherwise <c>null</c>.</summary>
     public string? Error { get; }
 }
+
+/// <summary>
+/// A sign of life of the server in answer to <see cref="IRcSession.RequestMissingFilesAsync"/>, before the result is complete: the
+/// server says it is searching, or a part of the result arrived. The first of these ends the wait for "a server that knows the request".
+/// </summary>
+public sealed class MissingFilesProgressEventArgs : EventArgs
+{
+    /// <summary>Creates the arguments of <c>missingfiles,searching</c>.</summary>
+    public MissingFilesProgressEventArgs()
+    {
+    }
+
+    /// <summary>Creates the arguments of a part of the result.</summary>
+    /// <param name="part">The part's number (from 1).</param>
+    /// <param name="parts">How many parts the result has.</param>
+    public MissingFilesProgressEventArgs(int part, int parts)
+    {
+        Part = part;
+        Parts = parts;
+    }
+
+    /// <summary>Whether this is the server's <c>searching</c> (no part yet).</summary>
+    public bool Searching => Parts == 0;
+
+    /// <summary>The number of the part that arrived (from 1); 0 for <c>searching</c>.</summary>
+    public int Part { get; }
+
+    /// <summary>How many parts the result has; 0 for <c>searching</c>.</summary>
+    public int Parts { get; }
+}

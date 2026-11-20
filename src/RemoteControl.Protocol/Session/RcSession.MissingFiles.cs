@@ -20,12 +20,18 @@ public sealed partial class RcSession
     }
 
     /// <summary>
-    /// The <c>missingfiles</c> answers: <c>error,&lt;sentence&gt;</c>, or <c>part,&lt;n&gt;,&lt;of&gt;,&lt;row&gt;...</c>. The parts are put together
+    /// The <c>missingfiles</c> answers: <c>searching</c> (the search runs; the result follows), <c>error,&lt;sentence&gt;</c>, or <c>part,&lt;n&gt;,&lt;of&gt;,&lt;row&gt;...</c>. The parts are put together
     /// here and one event is raised after the last. Whatever does not fit (a part out of order, a count that is no number, a row with too
     /// few values) is dropped with a log line.
     /// </summary>
     private void HandleMissingFilesText(List<string> parts)
     {
+        if (parts.Count >= 3 && parts[2] == "searching")
+        {
+            Raise(MissingFilesProgress, new MissingFilesProgressEventArgs());
+            return;
+        }
+
         if (parts.Count >= 3 && parts[2] == "error")
         {
             ResetMissingFiles();
@@ -62,7 +68,12 @@ public sealed partial class RcSession
         }
 
         _missingFilesNext = number + 1;
-        if (number < total) return;
+        if (number < total)
+        {
+            Raise(MissingFilesProgress, new MissingFilesProgressEventArgs(number, total));
+            return;
+        }
+
         var files = new List<MissingFile>(_missingFiles);
         ResetMissingFiles();
         Raise(MissingFilesReceived, new MissingFilesEventArgs(files.AsReadOnly()));
