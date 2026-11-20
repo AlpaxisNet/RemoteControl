@@ -130,8 +130,8 @@ internal sealed class DialogApprovals(AppServices services) : IMcpApprovals
         {
             McpScriptAction.Edit => "Edit the open script buffer without saving or applying it?",
             McpScriptAction.SaveApply => "Save/Apply the current open script buffer to the server?",
-            McpScriptAction.Write => "Write this script to the server (the old one is backed up)?",
-            _ => "Delete this script on the server (it is backed up first)?",
+            McpScriptAction.Write => "Write this script to the server?",
+            _ => "Delete this script on the server?",
         };
         string? always = string.IsNullOrEmpty(scriptType) || action == McpScriptAction.Delete ? null : "Always allow " + scriptType + " scripts";
         McpApproval answer = await McpApprovalWindow.AskAsync(services, "RC MCP Script Approval", question + "\n\n" + editor, always).ConfigureAwait(true);

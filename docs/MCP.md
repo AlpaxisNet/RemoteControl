@@ -45,7 +45,11 @@ open.
 - **The audit log** (`mcpaudit`) records every request with its outcome (Options → MCP → View audit log).
 - **Backups.** Before a tool overwrites or deletes anything on a server (a script, a file, a server text, NPC flags, a player's
   texts) it keeps the old version in `mcp-backups/` of your user folder. When the old version cannot be read or the backup cannot be
-  written, nothing is changed, unless the call gives `force: true` (a file over 64 MiB is deleted or replaced only with it).
+  written, nothing is changed, unless the call gives `force: true` (a file over 64 MiB is deleted or replaced only with it). A forced
+  change is always asked when approvals are on, even for a script type you always allow, and the question says when what it replaces
+  could not be read; a weapon whose script could not be read keeps the image of the weapon list, or needs `image`. Results say
+  `replaced` (not `created`) for a file that was there but could not be read. With approvals on, what a change replaces is looked at
+  again after you answer (a file, a script, the files a move would replace, NPC flags): when it changed meanwhile, nothing is done.
   `rc_backups` lists and shows them, `rc_restore_backup` puts one back (and keeps what it replaces, so a restore can be undone too). A
   restore needs the permission of the change it makes: player texts and server settings `mcpadmin`, NPC flags `mcpserver`. The server
   scope covers the backups too.
@@ -53,8 +57,12 @@ open.
   inside the MCP workspace, `mcp-files/` of your user folder; add your own folders separated by `;`. Paths that leave a root, through
   `..` or a link, are refused, for the folder given and for every file written or read inside it: a path is followed link by link as
   the system follows it (links inside a link's target included) and must really end inside the root; links inside an export folder are
-  not followed when it is scanned. The check comes just before the file is read or written, so a link made in that instant is not
-  caught: give the agent's own file tools no more than the roots it may use.
+  not followed when it is scanned. A root inside another root counts only while it really lies inside that one (a link there is judged
+  by the outer root). A file is read through one open handle whose real path is checked again (Linux and Windows), but a write is
+  checked just before it is made, so a link made in that instant is not caught, and a hard link to a file outside the roots is a file
+  of the folder like any other: give the agent's own file tools no more than the roots it may use. Local file names are compared as
+  the system compares them (with case on Linux). In an export folder an NPC file is `<id>_<name>.gs2`; one without the id is reported
+  as skipped, and a renamed one keeps the server its NPC came from.
 - **Requests** whose JSON holds text that is not valid UTF-16 (an escaped lone surrogate, in a value or a key) are refused with a parse
   error.
 
@@ -89,7 +97,9 @@ open.
   make it again). `rc_import` and `rc_copy` find an NPC of another server by its name, never by its id (ids are per server), and on the
   NPC's own server refuse an id that now belongs to an NPC of another name.
 - **Command output.** `rc_server_commands`, `serverSide` searches and `fromServer` script help wait for the server's first line (up to
-  `collectMilliseconds`), then until it has been quiet for a moment, and say `complete: false` when they stopped while it still wrote.
+  `collectMilliseconds`), then until it has been quiet for a moment, and say `complete: false` with the reason (`cut`) when nothing
+  came in time, when they stopped while it still wrote (a minute after its first line), or when lines were lost or left out; a pause
+  in the middle of an answer longer than that moment also ends it. What came later is in `rc_events`.
 - **Searches** with a regular expression stop with a message when the expression backtracks for too long on a line; searching runs
   beside the user interface, which stays responsive.
 

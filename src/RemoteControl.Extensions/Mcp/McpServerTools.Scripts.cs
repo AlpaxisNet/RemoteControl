@@ -324,11 +324,23 @@ internal static partial class McpServerTools
             script = ApplyEdits(Normalize(current.Script), edits);
         }
         script = Normalize(script);
-        string image = c.Args.TryString("image", out string given) ? given : current?.Image ?? string.Empty;
+        bool unread = exists && current is null;
+        string image;
+        if (c.Args.TryString("image", out string given)) image = given;
+        else if (current is not null) image = current.Image;
+        else if (kind != ScriptKind.Weapon || !unread) image = string.Empty;
+        else
+        {
+            // A weapon whose script could not be read keeps the image of the weapon list; without one the caller must give it.
+            RcWeapon? listed = c.Target.Session.Weapons.FirstOrDefault(weapon => weapon.Name == name);
+            image = listed is { Image.Length: > 0 } ? listed.Image
+                : throw new McpToolException("The script of the weapon " + name + " could not be read, so its image is not known; give image as well.");
+        }
         if (kind == ScriptKind.Class && script.Trim().Length == 0) throw new McpToolException("The server deletes a class whose script is empty; use rc_delete_script to delete it.");
         if (current is not null && Normalize(current.Script) == script && (kind != ScriptKind.Weapon || current.Image == image)) return Status("The script of " + Describe(kind, name, id) + " is already this text; nothing was sent.");
 
-        string change = current is null ? "new, " + LineCount(script) + " lines" : DiffSummary(Normalize(current.Script), script);
+        string change = unread ? "replacing the script there, which could not be read, without a backup: " + LineCount(script) + " lines"
+            : current is null ? "new, " + LineCount(script) + " lines" : DiffSummary(Normalize(current.Script), script);
         await c.ApproveScriptAsync(McpScriptAction.Write, ApprovalType(kind), (kind == ScriptKind.Npc ? id + " " + name : name) + " on " + c.Server + " (" + change + ")").ConfigureAwait(true);
         if (c.Options.McpApprove && (current is not null || !exists))
         {
@@ -547,15 +559,18 @@ internal static partial class McpServerTools
             }
             case "write_flags" or "set_flags" or "flags":
             {
-                string current = (await c.RequestAsync<NpcTextEventArgs>(session, h => session.NpcFlagsReceived += h, h => session.NpcFlagsReceived -= h, e => e.NpcId == npcId,
-                    () => session.RequestNpcFlagsAsync(npcId), "the flags of " + what).ConfigureAwait(true)).Text;
-                string flags = MergeSettings(current, c.Args, ignoreCase: false, out List<string> notes);
+                Task<NpcTextEventArgs> ReadFlagsAsync() => c.RequestAsync<NpcTextEventArgs>(session, h => session.NpcFlagsReceived += h, h => session.NpcFlagsReceived -= h, e => e.NpcId == npcId,
+                    () => session.RequestNpcFlagsAsync(npcId), "the flags of " + what);
+                // A whole new text needs the old flags only for the backup, which force may go without; set, remove and edits need them.
+                string? current = c.Args.Has("text") ? (await c.ReadForBackupAsync(ReadFlagsAsync, "flags of " + what).ConfigureAwait(true))?.Text
+                    : (await ReadFlagsAsync().ConfigureAwait(true)).Text;
+                string flags = MergeSettings(current ?? string.Empty, c.Args, ignoreCase: false, out List<string> notes);
                 if (flags == current) return Status("The flags of " + what + " already are this; nothing was sent.");
-                await c.ApproveAsync("Change the flags of " + what + " on " + c.Server + ": " + (notes.Count > 0 ? string.Join("; ", notes) : "\n" + McpToolContext.Whole(flags))).ConfigureAwait(true);
-                if (c.Options.McpApprove && (await c.RequestAsync<NpcTextEventArgs>(session, h => session.NpcFlagsReceived += h, h => session.NpcFlagsReceived -= h, e => e.NpcId == npcId,
-                    () => session.RequestNpcFlagsAsync(npcId), "the flags of " + what).ConfigureAwait(true)).Text != current)
+                await c.ApproveAsync("Change the flags of " + what + " on " + c.Server + (current is null ? ", replacing flags that could not be read, without a backup" : string.Empty) + ": "
+                    + (notes.Count > 0 ? string.Join("; ", notes) : "\n" + McpToolContext.Whole(flags))).ConfigureAwait(true);
+                if (c.Options.McpApprove && current is not null && (await ReadFlagsAsync().ConfigureAwait(true)).Text != current)
                     throw new McpToolException("The flags of " + what + " changed while the question was open; nothing was sent. Read them again and repeat the change.");
-                backup = await c.BackupAsync(c.Server, "npcflags", npcName, npcId, string.Empty, Encoding.UTF8.GetBytes(current), "rc_npc_action").ConfigureAwait(true);
+                if (current is not null) backup = await c.BackupAsync(c.Server, "npcflags", npcName, npcId, string.Empty, Encoding.UTF8.GetBytes(current), "rc_npc_action").ConfigureAwait(true);
                 McpToolContext.Sent(await session.SetNpcFlagsAsync(npcId, flags).ConfigureAwait(true), session, "The flags");
                 break;
             }

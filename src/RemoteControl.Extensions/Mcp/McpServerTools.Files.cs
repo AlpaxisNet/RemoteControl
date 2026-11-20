@@ -113,22 +113,15 @@ internal static partial class McpServerTools
 
     // ---- Transfers ---------------------------------------------------------------------------------------------------------------
 
-    /// <summary>Downloads a file through the MCP view of <paramref name="target"/>.</summary>
+    /// <summary>
+    /// Downloads a file through the MCP view of <paramref name="target"/>. The MCP view always asks the server (it never trusts a listing that
+    /// shows the file as empty); the server answers an empty file with "send failed", so a failed download of a file a fresh listing shows
+    /// as empty is an empty file.
+    /// </summary>
     /// <exception cref="McpToolException">The server refused it or sent nothing.</exception>
     internal static async Task<byte[]> DownloadAsync(McpToolContext c, McpSessionTarget target, string path)
     {
         IRcFileBrowser browser = target.Session.McpFileBrowser;
-        // The session hands out a file its view lists as empty without asking the server. A listing is only a moment: the file may have
-        // been written since (by the Files window, other staff, a rename onto it), so such a listing is asked for again first.
-        int slash = path.LastIndexOf('/');
-        if (slash > 0)
-        {
-            string folder = path[..(slash + 1)];
-            string name = path[(slash + 1)..];
-            if (browser.CurrentFolder.Trim('/').Equals(folder.Trim('/'), StringComparison.OrdinalIgnoreCase)
-                && browser.Files.Any(entry => entry.Size == 0 && string.Equals(entry.Name, name, StringComparison.OrdinalIgnoreCase)))
-                await ListFolderAsync(c, target, folder).ConfigureAwait(true);
-        }
         string? reason = null;
         EventHandler<FileTransferFailedEventArgs> failed = (_, e) =>
         {
@@ -139,7 +132,16 @@ internal static partial class McpServerTools
         {
             byte[]? content = await browser.DownloadAsync(path, c.Token).ConfigureAwait(true);
             c.Token.ThrowIfCancellationRequested();
-            return content ?? throw new McpToolException("The download of " + path + " from " + target.ServerName + " failed" + (reason is null ? McpToolContext.Because(target.Session) : ": " + reason) + ".");
+            if (content is not null) return content;
+            int slash = path.LastIndexOf('/');
+            if (slash > 0)
+            {
+                string folder = path[..(slash + 1)];
+                string name = path[(slash + 1)..];
+                IReadOnlyList<FileBrowserEntry> listing = await ListFolderAsync(c, target, folder).ConfigureAwait(true);
+                if (listing.Any(entry => !entry.IsDirectory && entry.Size == 0 && entry.Name == name)) return Array.Empty<byte>();
+            }
+            throw new McpToolException("The download of " + path + " from " + target.ServerName + " failed" + (reason is null ? McpToolContext.Because(target.Session) : ": " + reason) + ".");
         }
         finally
         {
@@ -225,10 +227,10 @@ internal static partial class McpServerTools
     internal static async Task<(UploadAnswer Answer, bool Replaced, McpBackupEntry? Backup)> PutFileAsync(McpToolContext c, McpSessionTarget target, string folder, string name, byte[] content, byte[]? previous, bool lookedUp, string reason)
     {
         FileBrowserEntry? existing = previous is null && !lookedUp ? await FindFileAsync(c, target, folder, name).ConfigureAwait(true) : null;
-        if (previous is null && existing is not null) previous = existing.Size == 0 ? Array.Empty<byte>() : await DownloadAsync(c, target, folder + existing.Name).ConfigureAwait(true);
+        if (previous is null && existing is not null) previous = await c.ReadForBackupAsync(() => DownloadAsync(c, target, folder + existing.Name), folder + existing.Name).ConfigureAwait(true);
         McpBackupEntry? backup = previous is null ? null : await c.BackupAsync(target.ServerName, "file", folder + name, 0, string.Empty, previous, reason).ConfigureAwait(true);
         UploadAnswer answer = await UploadAsync(c, target, folder, name, content).ConfigureAwait(true);
-        return (answer, previous is not null, backup);
+        return (answer, previous is not null || existing is not null, backup);
     }
 
     // ---- Tools -------------------------------------------------------------------------------------------------------------------
@@ -238,18 +240,7 @@ internal static partial class McpServerTools
         c.RequireRc();
         (string folder, string name) = SplitServerPath(c.Args.RequiredString("path"));
         string encoding = McpFileText.Normalize(c.Args.String("encoding"));
-        byte[] content;
-        try
-        {
-            content = await DownloadAsync(c, c.Target, folder + name).ConfigureAwait(true);
-        }
-        catch (McpToolException)
-        {
-            // The server answers a download of an empty file with "send failed": an empty file of that name is read as empty.
-            FileBrowserEntry? entry = await FindFileAsync(c, c.Target, folder, name).ConfigureAwait(true);
-            if (entry is not { Size: 0 }) throw;
-            content = Array.Empty<byte>();
-        }
+        byte[] content = await DownloadAsync(c, c.Target, folder + name).ConfigureAwait(true);
         bool range = c.Args.Has("start") || c.Args.Has("end");
         bool search = c.Args.Has("query");
         if (content.Length > MaximumInlineBytes && (encoding == "base64" || !range && !search))
@@ -381,7 +372,7 @@ internal static partial class McpServerTools
         if (existing is null && !c.Args.Bool("create", true)) throw new McpToolException(folder + name + " does not exist and create is false.");
         if (existing is not null) name = existing.Name;
         // Edits need the old text; a whole new content needs it only for the backup, which force may go without.
-        byte[]? previous = existing is null ? null : existing.Size == 0 ? Array.Empty<byte>()
+        byte[]? previous = existing is null ? null
             : edits.Count > 0 ? await DownloadAsync(c, c.Target, folder + name).ConfigureAwait(true)
             : await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, folder + name), folder + name).ConfigureAwait(true);
         bool unread = existing is not null && previous is null;
@@ -418,12 +409,13 @@ internal static partial class McpServerTools
             if (used == "auto") used = McpFileText.Decode(content, "auto", out _);
         }
         if (previous is not null && previous.AsSpan().SequenceEqual(content)) return Status(folder + name + " already has this content; nothing was sent.");
-        await c.ApproveAsync("Upload " + folder + name + " to " + c.Server + " (" + content.Length + " bytes" + (previous is null ? ", a new file" : ", replacing " + previous.Length + " bytes") + ")").ConfigureAwait(true);
+        await c.ApproveAsync("Upload " + folder + name + " to " + c.Server + " (" + content.Length + " bytes"
+            + (unread ? ", replacing the file there, which could not be read, without a backup" : previous is null ? ", a new file" : ", replacing " + previous.Length + " bytes") + ")").ConfigureAwait(true);
         if (c.Options.McpApprove && !unread)
         {
             // The question may have been open for a while: the upload must replace the file it was about (and that is backed up).
             FileBrowserEntry? now = await FindFileAsync(c, c.Target, folder, name).ConfigureAwait(true);
-            byte[]? again = now is null ? null : now.Size == 0 ? Array.Empty<byte>() : await DownloadAsync(c, c.Target, folder + now.Name).ConfigureAwait(true);
+            byte[]? again = now is null ? null : await DownloadAsync(c, c.Target, folder + now.Name).ConfigureAwait(true);
             if ((again is null) != (previous is null) || again is not null && !again.AsSpan().SequenceEqual(previous))
                 throw new McpToolException(folder + name + " changed on " + c.Server + " while the question was open; nothing was sent. Read it again and repeat the change.");
         }
@@ -453,10 +445,17 @@ internal static partial class McpServerTools
         if (existing.Size > MaximumBackupBytes && !force)
             throw new McpToolException(folder + existing.Name + " has " + existing.Size + " bytes, more than a backup keeps (" + MaximumBackupBytes + "); give force: true to delete it without one.");
         await c.ApproveAsync("Delete " + folder + existing.Name + " (" + existing.Size + " bytes) on " + c.Server + (existing.Size > MaximumBackupBytes ? ", without a backup" : string.Empty)).ConfigureAwait(true);
+        if (c.Options.McpApprove)
+        {
+            // The question may have been open for a while: the file deleted must be the one it was about.
+            FileBrowserEntry? now = await FindFileAsync(c, c.Target, folder, existing.Name).ConfigureAwait(true);
+            if (now is null || now.Name != existing.Name || now.Size != existing.Size || now.Modified != existing.Modified)
+                throw new McpToolException(folder + existing.Name + " changed on " + c.Server + " while the question was open; nothing was deleted. Look at it again and repeat the change.");
+        }
         McpBackupEntry? backup = null;
         if (existing.Size <= MaximumBackupBytes)
         {
-            byte[]? previous = existing.Size == 0 ? Array.Empty<byte>() : await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, folder + existing.Name), folder + existing.Name).ConfigureAwait(true);
+            byte[]? previous = await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, folder + existing.Name), folder + existing.Name).ConfigureAwait(true);
             if (previous is not null) backup = await c.BackupAsync(c.Server, "file", folder + existing.Name, 0, string.Empty, previous, "rc_delete_file").ConfigureAwait(true);
         }
         long since = c.Target.Journal.Sequence;
@@ -481,13 +480,18 @@ internal static partial class McpServerTools
         // names it takes are destination+name (after the move) and destination+newName (after the rename); a file of either name, other
         // than this one, is replaced only with overwrite, after a backup. Names are compared exactly: on a server that tells case apart,
         // Start.nw and start.nw are two files.
-        var replaced = new List<FileBrowserEntry>();
-        foreach (string taken in moving && renaming ? new[] { existing.Name, finalName } : new[] { finalName })
+        async Task<List<FileBrowserEntry>> TakenAsync()
         {
-            FileBrowserEntry? other = await FindFileAsync(c, c.Target, destination, taken).ConfigureAwait(true);
-            if (other is null || !moving && other.Name == existing.Name) continue;
-            if (!replaced.Any(entry => entry.Name == other.Name)) replaced.Add(other);
+            var found = new List<FileBrowserEntry>();
+            foreach (string taken in moving && renaming ? new[] { existing.Name, finalName } : new[] { finalName })
+            {
+                FileBrowserEntry? other = await FindFileAsync(c, c.Target, destination, taken).ConfigureAwait(true);
+                if (other is null || !moving && other.Name == existing.Name) continue;
+                if (!found.Any(entry => entry.Name == other.Name)) found.Add(other);
+            }
+            return found;
         }
+        List<FileBrowserEntry> replaced = await TakenAsync().ConfigureAwait(true);
         bool overwrite = c.Args.Bool("overwrite", false);
         bool force = c.Args.Bool("force", false);
         if (replaced.Count > 0 && !overwrite)
@@ -497,10 +501,17 @@ internal static partial class McpServerTools
             throw new McpToolException(destination + large.Name + " has " + large.Size + " bytes, more than a backup keeps; give force: true to replace it without one.");
         await c.ApproveAsync("Move " + folder + existing.Name + " to " + destination + finalName + " on " + c.Server
             + string.Concat(replaced.Select(entry => ", replacing " + destination + entry.Name + " (" + entry.Size + " bytes" + (entry.Size > MaximumBackupBytes ? ", without a backup" : string.Empty) + ")"))).ConfigureAwait(true);
+        if (c.Options.McpApprove)
+        {
+            // The question may have been open for a while: the files the move replaces must be the ones it named (none appeared since).
+            List<FileBrowserEntry> now = await TakenAsync().ConfigureAwait(true);
+            if (now.Count != replaced.Count || now.Any(entry => !replaced.Any(old => old.Name == entry.Name && old.Size == entry.Size && old.Modified == entry.Modified)))
+                throw new McpToolException("The files at " + destination + " changed on " + c.Server + " while the question was open; nothing was moved. Look at them again and repeat the change.");
+        }
         McpBackupEntry? backup = null;
         foreach (FileBrowserEntry entry in replaced.Where(entry => entry.Size <= MaximumBackupBytes))
         {
-            byte[]? old = entry.Size == 0 ? Array.Empty<byte>() : await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, destination + entry.Name), destination + entry.Name).ConfigureAwait(true);
+            byte[]? old = await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, destination + entry.Name), destination + entry.Name).ConfigureAwait(true);
             if (old is not null) backup = await c.BackupAsync(c.Server, "file", destination + entry.Name, 0, string.Empty, old, "rc_move_file").ConfigureAwait(true) ?? backup;
         }
         long since = c.Target.Journal.Sequence;

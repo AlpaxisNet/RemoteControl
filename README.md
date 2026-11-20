@@ -40,7 +40,7 @@ what changed is underneath:
 | | |
 | --- | --- |
 | Code | about 62,000 lines of documented C# in 14 libraries, 27,000 lines of tests |
-| Tests | **1,619**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
+| Tests | **1,630**, all without a network, a screen or the user's files (one more runs on Windows only); two more run on request against a test network of your own |
 | Systems | Windows 10 and 11 (x64), Linux (x64, X11 or XWayland); packages built by GitHub Actions on every tag |
 | Network | the list server, the RC and NC connections and their file transfers in managed code; tried live against an Alpaxis network |
 

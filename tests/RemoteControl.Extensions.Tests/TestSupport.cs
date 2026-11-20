@@ -204,3 +204,12 @@ internal sealed class UnixFactAttribute : FactAttribute
         if (OperatingSystem.IsWindows()) Skip = "Unix-domain socket transport";
     }
 }
+
+/// <summary>A test of how Windows takes paths; skipped elsewhere.</summary>
+internal sealed class WindowsFactAttribute : FactAttribute
+{
+    public WindowsFactAttribute()
+    {
+        if (!OperatingSystem.IsWindows()) Skip = "Windows paths";
+    }
+}

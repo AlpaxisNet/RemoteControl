@@ -120,7 +120,7 @@ internal static partial class McpServerTools
                     results.Add(new ItemResult(path, "skipped", "It exists on " + to.ServerName + "."));
                     continue;
                 }
-                byte[]? previous = existing is null ? null : existing.Size == 0 ? Array.Empty<byte>() : await c.ReadForBackupAsync(() => DownloadAsync(c, to, targetFolder + existing.Name), targetFolder + existing.Name + " on " + to.ServerName).ConfigureAwait(true);
+                byte[]? previous = existing is null ? null : await c.ReadForBackupAsync(() => DownloadAsync(c, to, targetFolder + existing.Name), targetFolder + existing.Name + " on " + to.ServerName).ConfigureAwait(true);
                 if (previous is not null && previous.AsSpan().SequenceEqual(content))
                 {
                     results.Add(new ItemResult(path, "unchanged", "The destination has the same bytes."));
@@ -131,7 +131,7 @@ internal static partial class McpServerTools
                 listings.Remove(targetFolder);
                 results.Add(answer.Answered && !answer.Accepted
                     ? new ItemResult(path, "failed", answer.Message)
-                    : new ItemResult(path, replaced ? "replaced" : "created", (answer.Answered ? string.Empty : "not confirmed by the server; ") + "as " + targetFolder + (existing?.Name ?? name), backup?.Id ?? string.Empty));
+                    : new ItemResult(path, replaced || existing is not null ? "replaced" : "created", (answer.Answered ? string.Empty : "not confirmed by the server; ") + (existing is not null && previous is null ? "the old file could not be read and has no backup; " : string.Empty) + "as " + targetFolder + (existing?.Name ?? name), backup?.Id ?? string.Empty));
             }
             catch (McpToolException exception)
             {
@@ -220,8 +220,11 @@ internal static partial class McpServerTools
         public List<IndexEntry> Entries { get; } = new();
     }
 
-    /// <summary>An entry of the index; <paramref name="Origin"/> is the server it was exported from (NPC ids are per server).</summary>
-    private sealed record IndexEntry(string Kind, string Name, int Id, string Image, string Path, string File, string Sha256, string Origin = "");
+    /// <summary>
+    /// An entry of the index; <paramref name="Origin"/> is the server it was exported from (NPC ids are per server). <paramref name="Found"/>
+    /// marks a file the index does not name (its name is only what the file is called); it is not written to the index.
+    /// </summary>
+    private sealed record IndexEntry(string Kind, string Name, int Id, string Image, string Path, string File, string Sha256, string Origin = "", bool Found = false);
 
     public static async Task<string> ExportAsync(McpToolContext c)
     {
@@ -284,9 +287,9 @@ internal static partial class McpServerTools
                 await WriteLocalAsync(local, folder, relative, bytes).ConfigureAwait(true);
                 // An entry of the same script under another file (an NPC whose id now has another name) goes, with its file:
                 // rc_import would otherwise send the old file as a new script of that id.
-                foreach (IndexEntry old in index.Entries.Where(entry => SameScript(entry, kind, name, id) && !string.Equals(entry.File, relative, StringComparison.OrdinalIgnoreCase)).ToArray())
+                foreach (IndexEntry old in index.Entries.Where(entry => SameScript(entry, kind, name, id, c.Server) && !string.Equals(entry.File, relative, McpLocalFiles.PathComparison)).ToArray())
                     await DeleteLocalAsync(local, folder, old.File).ConfigureAwait(true);
-                index.Entries.RemoveAll(entry => SameScript(entry, kind, name, id) || string.Equals(entry.File, relative, StringComparison.OrdinalIgnoreCase));
+                index.Entries.RemoveAll(entry => SameScript(entry, kind, name, id, c.Server) || string.Equals(entry.File, relative, McpLocalFiles.PathComparison));
                 index.Entries.Add(new IndexEntry(KindName(kind), name, id, image, string.Empty, relative, Sha(bytes), c.Server));
                 results.Add(new ItemResult(label, "exported", relative));
             }
@@ -323,8 +326,11 @@ internal static partial class McpServerTools
             writer.WriteEndObject();
         });
 
-        static bool SameScript(IndexEntry entry, ScriptKind kind, string name, int id) =>
-            entry.Kind == KindName(kind) && (kind == ScriptKind.Npc ? entry.Id == id : string.Equals(entry.Name, name, StringComparison.Ordinal));
+        // An NPC id is the same NPC only on the same server: an entry of another one (its origin) is another NPC.
+        static bool SameScript(IndexEntry entry, ScriptKind kind, string name, int id, string server) =>
+            entry.Kind == KindName(kind) && (kind == ScriptKind.Npc
+                ? entry.Id == id && (entry.Origin.Length == 0 || string.Equals(entry.Origin, server, StringComparison.OrdinalIgnoreCase))
+                : string.Equals(entry.Name, name, StringComparison.Ordinal));
     }
 
     public static async Task<string> ImportAsync(McpToolContext c)
@@ -344,14 +350,24 @@ internal static partial class McpServerTools
         // link check of the local roots: a link inside the folder that leads out of them is refused.
         var candidates = new List<(IndexEntry Entry, byte[] Bytes, string Change)>();
         var results = new List<ItemResult>();
-        var known = new HashSet<string>(index.Entries.Select(entry => entry.File), StringComparer.OrdinalIgnoreCase);
+        var known = new HashSet<string>(index.Entries.Select(entry => entry.File), McpLocalFiles.PathComparer);
         var entries = new List<IndexEntry>(index.Entries);
         try
         {
-            // An unindexed NPC file of an id the index names is an old copy only while the indexed file is there; when that one was renamed
-            // away, the renamed file is the NPC's script and is read as new.
-            var npcIds = new HashSet<int>(index.Entries.Where(entry => entry.Kind == "npc" && IndexedFileExists(local, folder, entry.File)).Select(entry => entry.Id));
-            entries.AddRange(await Task.Run(() => ScanNewFiles(folder, known, npcIds)).ConfigureAwait(true));
+            // An unindexed NPC file of an id the index names is the NPC's script renamed when the indexed file of that id is gone (of the
+            // server that entry came from; an empty origin: more than one), and an old copy while it is there.
+            var present = index.Entries.Where(entry => entry.Kind == "npc").ToLookup(entry => IndexedFileExists(local, folder, entry.File));
+            var npcIds = new HashSet<int>(present[true].Select(entry => entry.Id));
+            Dictionary<int, string> goneOrigins = present[false]
+                .GroupBy(entry => entry.Id)
+                .ToDictionary(group => group.Key, group =>
+                {
+                    string[] origins = group.Select(entry => entry.Origin.Length > 0 ? entry.Origin : index.Server).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                    return origins.Length == 1 ? origins[0] : string.Empty;
+                });
+            (List<IndexEntry> found, List<ItemResult> skipped) = await Task.Run(() => ScanNewFiles(folder, known, npcIds, goneOrigins)).ConfigureAwait(true);
+            entries.AddRange(found);
+            if (kinds.Contains("npc")) results.AddRange(skipped);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -369,7 +385,7 @@ internal static partial class McpServerTools
                     results.Add(new ItemResult(entry.File, "skipped", "The local file is gone; nothing is deleted on the server."));
                     continue;
                 }
-                bytes = await File.ReadAllBytesAsync(full, c.Token).ConfigureAwait(true);
+                bytes = await local.ReadAsync(full, c.Token).ConfigureAwait(true);
             }
             catch (McpToolException exception)
             {
@@ -411,7 +427,7 @@ internal static partial class McpServerTools
                         listings[serverFolder] = listing;
                     }
                     FileBrowserEntry? existing = listing.FirstOrDefault(item => !item.IsDirectory && string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
-                    byte[]? previous = existing is null ? null : existing.Size == 0 ? Array.Empty<byte>() : await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, serverFolder + existing.Name), serverFolder + existing.Name).ConfigureAwait(true);
+                    byte[]? previous = existing is null ? null : await c.ReadForBackupAsync(() => DownloadAsync(c, c.Target, serverFolder + existing.Name), serverFolder + existing.Name).ConfigureAwait(true);
                     if (previous is not null && previous.AsSpan().SequenceEqual(bytes))
                     {
                         results.Add(new ItemResult(label, "unchanged", "The server has the same bytes."));
@@ -425,7 +441,9 @@ internal static partial class McpServerTools
                             results.Add(new ItemResult(label, "failed", answer.Message));
                             continue;
                         }
-                        results.Add(new ItemResult(label, replaced ? "replaced" : "created", answer.Answered ? string.Empty : "not confirmed by the server", backup?.Id ?? string.Empty));
+                        results.Add(new ItemResult(label, replaced || existing is not null ? "replaced" : "created",
+                            string.Join("; ", new[] { answer.Answered ? string.Empty : "not confirmed by the server", existing is not null && previous is null ? "the old file could not be read and has no backup" : string.Empty }.Where(part => part.Length > 0)),
+                            backup?.Id ?? string.Empty));
                     }
                 }
                 else
@@ -447,7 +465,7 @@ internal static partial class McpServerTools
                         bool foreign = origin.Length > 0 && !string.Equals(origin, c.Server, StringComparison.OrdinalIgnoreCase);
                         RcNpc? byId = foreign ? null : c.Session.Npcs.FirstOrDefault(npc => npc.Id == id);
                         // (The name of an exported entry is the NPC's; that of a file found in the folder is only what its file is called.)
-                        if (byId is not null && entry.Origin.Length > 0 && name.Length > 0 && byId.Name.Length > 0 && !string.Equals(byId.Name, name, StringComparison.OrdinalIgnoreCase))
+                        if (byId is not null && !entry.Found && entry.Origin.Length > 0 && name.Length > 0 && byId.Name.Length > 0 && !string.Equals(byId.Name, name, StringComparison.OrdinalIgnoreCase))
                         {
                             results.Add(new ItemResult(label, "failed", "NPC " + id + " is named " + byId.Name + " on " + c.Server + " now, not " + name + "; nothing was sent."));
                             continue;
@@ -476,7 +494,7 @@ internal static partial class McpServerTools
                         results.Add(new ItemResult(label, created ? "created" : "replaced", string.Empty, backup?.Id ?? string.Empty));
                     }
                 }
-                index.Entries.RemoveAll(item => string.Equals(item.File, entry.File, StringComparison.OrdinalIgnoreCase));
+                index.Entries.RemoveAll(item => string.Equals(item.File, entry.File, McpLocalFiles.PathComparison));
                 index.Entries.Add(entry with { Sha256 = Sha(bytes) });
             }
             catch (McpToolException exception)
@@ -525,11 +543,15 @@ internal static partial class McpServerTools
 
     /// <summary>
     /// The files under <c>weapons/</c>, <c>classes/</c>, <c>npcs/</c> and <c>files/</c> that the index does not name: new scripts and
-    /// files. An NPC file whose id the index names under another file is an old copy (the NPC was renamed) and is left out.
+    /// files. An NPC file of an id whose indexed file is gone is the renamed script of that NPC, of the server in
+    /// <paramref name="goneOrigins"/>; one whose id the index names under a file that is there is an old copy (the NPC was renamed).
+    /// Those old copies, NPC files without the <c>id_</c> of their name, and NPC files of an id that two servers' gone entries name are
+    /// skipped (the second list).
     /// </summary>
-    private static List<IndexEntry> ScanNewFiles(string folder, HashSet<string> known, HashSet<int> indexedNpcIds)
+    private static (List<IndexEntry> Found, List<ItemResult> Skipped) ScanNewFiles(string folder, HashSet<string> known, HashSet<int> indexedNpcIds, IReadOnlyDictionary<int, string> goneOrigins)
     {
         var entries = new List<IndexEntry>();
+        var skipped = new List<ItemResult>();
         foreach (ScriptKind kind in new[] { ScriptKind.Weapon, ScriptKind.Class, ScriptKind.Npc })
         {
             string directory = Path.Combine(folder, ScriptFolder(kind));
@@ -540,14 +562,32 @@ internal static partial class McpServerTools
                 if (known.Contains(relative)) continue;
                 string stem = UnescapeFileName(Path.GetFileNameWithoutExtension(file));
                 int id = 0;
+                string origin = string.Empty;
                 if (kind == ScriptKind.Npc)
                 {
                     int underscore = stem.IndexOf('_');
-                    if (underscore <= 0 || !int.TryParse(stem[..underscore], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out id)) continue;
-                    if (indexedNpcIds.Contains(id)) continue;
+                    if (underscore <= 0 || !int.TryParse(stem[..underscore], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out id) || id <= 0)
+                    {
+                        skipped.Add(new ItemResult(relative, "skipped", "An NPC file is named <id>_<name>.gs2 (as rc_export writes it); this one has no id, so it is not known which NPC it is."));
+                        continue;
+                    }
+                    if (goneOrigins.TryGetValue(id, out string? gone))
+                    {
+                        if (gone.Length == 0)
+                        {
+                            skipped.Add(new ItemResult(relative, "skipped", "The index names NPC " + id + " of more than one server, and their files are gone; it is not known which this one is."));
+                            continue;
+                        }
+                        origin = gone;
+                    }
+                    else if (indexedNpcIds.Contains(id))
+                    {
+                        skipped.Add(new ItemResult(relative, "skipped", "The index names NPC " + id + " under another file; this one is an old copy (the NPC was renamed)."));
+                        continue;
+                    }
                     stem = stem[(underscore + 1)..];
                 }
-                entries.Add(new IndexEntry(KindName(kind), stem, id, string.Empty, string.Empty, relative, string.Empty));
+                entries.Add(new IndexEntry(KindName(kind), stem, id, string.Empty, string.Empty, relative, string.Empty, origin, Found: true));
             }
         }
         string files = Path.Combine(folder, "files");
@@ -559,10 +599,10 @@ internal static partial class McpServerTools
                 string path = Path.GetRelativePath(files, file).Replace('\\', '/');
                 string relative = "files/" + path;
                 if (known.Contains(relative) || !path.Contains('/')) continue;
-                entries.Add(new IndexEntry("file", string.Empty, 0, string.Empty, path, relative, string.Empty));
+                entries.Add(new IndexEntry("file", string.Empty, 0, string.Empty, path, relative, string.Empty, Found: true));
             }
         }
-        return entries;
+        return (entries, skipped);
     }
 
     /// <summary>The index of an export folder (an empty one when there is none). The folder is edited with local tools, so anything unexpected in it is a tool error, never a crash.</summary>
@@ -573,7 +613,9 @@ internal static partial class McpServerTools
         if (!File.Exists(path)) return index;
         try
         {
-            using JsonDocument document = JsonDocument.Parse(await File.ReadAllTextAsync(path).ConfigureAwait(true));
+            byte[] bytes = await local.ReadAsync(path, CancellationToken.None).ConfigureAwait(true);
+            using var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            using JsonDocument document = JsonDocument.Parse(await reader.ReadToEndAsync().ConfigureAwait(true));
             JsonElement root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !McpArguments.IsWellFormed(root)) throw new McpToolException(path + " is not a valid export index: it is no JSON object of valid text.");
             index.Server = Text(root, "server");
@@ -763,7 +805,10 @@ internal static partial class McpServerTools
                 bool exists = await ExistsAsync(c, target, kind, entry.Name, entry.NpcId).ConfigureAwait(true);
                 if (kind == ScriptKind.Npc && !exists) throw new McpToolException("NPC " + entry.NpcId + " is not on " + target.ServerName + "; create it first with rc_npc_action.");
                 string name = exists && kind != ScriptKind.Npc ? ResolveScript(target, kind, entry.Name, 0).Name : entry.Name;
-                await c.ApproveScriptAsync(McpScriptAction.Write, ApprovalType(kind), (kind == ScriptKind.Npc ? entry.NpcId + " " : string.Empty) + name + " on " + target.ServerName + " (restore of " + entry.Id + ")").ConfigureAwait(true);
+                await c.ApproveScriptAsync(McpScriptAction.Write, ApprovalType(kind), (kind == ScriptKind.Npc ? entry.NpcId + " " : string.Empty) + name + " on " + target.ServerName + " (restore of " + entry.Id + (exists ? ", replacing the script there" : ", a new " + KindName(kind)) + ")").ConfigureAwait(true);
+                // The question may have been open for a while: a script added or deleted since would be written over without its backup.
+                if (c.Options.McpApprove && await ExistsAsync(c, target, kind, name, entry.NpcId).ConfigureAwait(true) != exists)
+                    throw new McpToolException(Describe(kind, name, entry.NpcId) + " was " + (exists ? "deleted" : "added") + " on " + target.ServerName + " while the question was open; nothing was restored. Look at it again and repeat the restore.");
                 ScriptReceivedEventArgs? current = exists ? await c.ReadForBackupAsync(() => FetchScriptAsync(c, target, kind, name, entry.NpcId), "script of " + Describe(kind, name, entry.NpcId)).ConfigureAwait(true) : null;
                 backup = (await SendScriptAsync(c, target, kind, name, entry.NpcId, Normalize(text), entry.Image, current, "rc_restore_backup").ConfigureAwait(true)).Backup;
                 break;
@@ -792,9 +837,9 @@ internal static partial class McpServerTools
                 if (!target.Session.Npcs.Any(npc => npc.Id == entry.NpcId)) throw new McpToolException("NPC " + entry.NpcId + " is not on " + target.ServerName + ".");
                 await c.ApproveAsync("Restore the flags of NPC " + entry.NpcId + " on " + target.ServerName + " from the backup " + entry.Id + ":\n" + McpToolContext.Whole(Normalize(text))).ConfigureAwait(true);
                 IRcSession session = target.Session;
-                string current = (await c.RequestAsync<NpcTextEventArgs>(session, h => session.NpcFlagsReceived += h, h => session.NpcFlagsReceived -= h, e => e.NpcId == entry.NpcId,
-                    () => session.RequestNpcFlagsAsync(entry.NpcId), "the flags of NPC " + entry.NpcId).ConfigureAwait(true)).Text;
-                backup = await c.BackupAsync(target.ServerName, "npcflags", entry.Name, entry.NpcId, string.Empty, Encoding.UTF8.GetBytes(current), "rc_restore_backup").ConfigureAwait(true);
+                NpcTextEventArgs? current = await c.ReadForBackupAsync(() => c.RequestAsync<NpcTextEventArgs>(session, h => session.NpcFlagsReceived += h, h => session.NpcFlagsReceived -= h, e => e.NpcId == entry.NpcId,
+                    () => session.RequestNpcFlagsAsync(entry.NpcId), "the flags of NPC " + entry.NpcId), "flags of NPC " + entry.NpcId).ConfigureAwait(true);
+                if (current is not null) backup = await c.BackupAsync(target.ServerName, "npcflags", entry.Name, entry.NpcId, string.Empty, Encoding.UTF8.GetBytes(current.Text), "rc_restore_backup").ConfigureAwait(true);
                 McpToolContext.Sent(await target.Session.SetNpcFlagsAsync(entry.NpcId, Normalize(text)).ConfigureAwait(true), target.Session, "The flags");
                 break;
             }

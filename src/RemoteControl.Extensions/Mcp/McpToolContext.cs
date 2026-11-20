@@ -193,7 +193,8 @@ internal sealed class McpToolContext
     public async Task ApproveScriptAsync(McpScriptAction action, string type, string what)
     {
         if (!Options.McpApprove) return;
-        bool saved = action != McpScriptAction.Delete && type switch
+        // A forced change may go without its backup: it is always asked, whatever was saved for the type.
+        bool saved = action != McpScriptAction.Delete && !Args.Bool("force", false) && type switch
         {
             "Weapon" => Options.McpApproveWeapon,
             "Class" => Options.McpApproveClass,

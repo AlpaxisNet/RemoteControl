@@ -98,7 +98,10 @@ public interface IRcSession : IDisposable
     /// <summary>The server backup's view of the file browser: its listings and downloads never reach the windows or the synchroniser.</summary>
     IRcFileBrowser BackupFileBrowser { get; }
 
-    /// <summary>The MCP server's view of the file browser: what an MCP client lists, downloads and uploads never moves the windows' view.</summary>
+    /// <summary>
+    /// The MCP server's view of the file browser: what an MCP client lists, downloads and uploads never moves the windows' view. Unlike the
+    /// others it never hands out a file its listing shows as empty without asking the server.
+    /// </summary>
     IRcFileBrowser McpFileBrowser { get; }
 
     // ---- Connection events -------------------------------------------------------------------------------------------------

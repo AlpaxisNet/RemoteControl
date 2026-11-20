@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Microsoft.Win32.SafeHandles;
 using RemoteControl.Core;
 
 namespace RemoteControl.Extensions;
@@ -145,6 +147,9 @@ internal sealed class McpBackupStore
 /// The local folders MCP tools may read and write (the option <c>mcpfileroots</c>: folders separated by <c>;</c> or line breaks). A
 /// relative root is taken inside the MCP workspace folder, so the default <c>.</c> is the workspace itself. A local path given to a tool
 /// is either absolute and inside a root, or relative to the first root; <c>..</c> and links that lead out of every root are refused.
+/// A root lexically inside another root counts only while it really lies inside that one too (a link there is no root of its own).
+/// What this cannot see: a link put in place between the check of a path and a write to it (reads go through <see cref="ReadAsync"/>,
+/// which checks the open file), and a hard link to a file outside the roots, which is a file of the folder like any other.
 /// </summary>
 internal sealed class McpLocalFiles
 {
@@ -164,9 +169,11 @@ internal sealed class McpLocalFiles
 
     public IReadOnlyList<string> Roots { get; }
 
-    private static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+    /// <summary>How the system compares file names: without case on Windows and macOS, with case elsewhere.</summary>
+    internal static StringComparer PathComparer => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
-    private static StringComparison PathComparison => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+    /// <summary>The comparison of <see cref="PathComparer"/>.</summary>
+    internal static StringComparison PathComparison => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     /// <summary>The full path of a local path an MCP client gave.</summary>
     /// <exception cref="McpToolException">No roots are configured, or the path is outside every root.</exception>
@@ -184,7 +191,7 @@ internal sealed class McpLocalFiles
             if (!SafePath.TryCombine(Roots[0], path, out string? combined, out string? reason)) throw new McpToolException("The local path is refused: " + reason);
             full = combined;
         }
-        string? root = Roots.FirstOrDefault(candidate => IsInside(candidate, full));
+        string? root = RootOf(full);
         if (root is null) throw new McpToolException("The local path \"" + path + "\" is outside the folders MCP may use (" + string.Join("; ", Roots) + ").");
         CheckLinks(root, full);
         if (string.Equals(root, Roots[0], PathComparison)) EnsureRoot(root);
@@ -199,11 +206,119 @@ internal sealed class McpLocalFiles
     public string ResolveUnder(string folder, string relative)
     {
         if (!SafePath.TryCombine(folder, relative, out string? full, out string? reason)) throw new McpToolException("The local path " + relative + " is refused: " + reason);
-        string? root = Roots.FirstOrDefault(candidate => IsInside(candidate, full));
+        string? root = RootOf(full);
         if (root is null) throw new McpToolException("The local path \"" + full + "\" is outside the folders MCP may use.");
         CheckLinks(root, full);
         return full;
     }
+
+    /// <summary>
+    /// Reads a local file (a path of <see cref="Resolve"/> or <see cref="ResolveUnder"/>) through one open handle, after checking where
+    /// that handle really is: a link put in place of the file after its path was checked is refused. Where the system cannot tell the path
+    /// of an open file (macOS) the check of the path stands alone.
+    /// </summary>
+    /// <exception cref="McpToolException">The file is outside the roots, or what was opened is.</exception>
+    /// <exception cref="IOException">It could not be read.</exception>
+    public async Task<byte[]> ReadAsync(string full, CancellationToken token)
+    {
+        string root = RootOf(full) ?? throw new McpToolException("The local path \"" + full + "\" is outside the folders MCP may use.");
+        CheckLinks(root, full);
+        await using var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous);
+        string? opened = OpenedPath(stream.SafeFileHandle);
+        if (opened is not null)
+        {
+            string realRoot;
+            try
+            {
+                realRoot = RealPath(root);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                throw new McpToolException("The local folder " + root + " goes through a link that cannot be followed: " + exception.Message);
+            }
+            if (!IsInside(realRoot, opened)) throw new McpToolException("The local file \"" + full + "\" leads out of " + root + " (to " + opened + "); it was not read.");
+        }
+        using var content = new MemoryStream();
+        await stream.CopyToAsync(content, token).ConfigureAwait(true);
+        return content.ToArray();
+    }
+
+    /// <summary>
+    /// The root a full path is in: the first that holds it and is trusted. A root inside another root (lexically) is trusted only while its
+    /// real path lies inside that one's real path; otherwise the path is judged by the outer root, whose link check refuses it.
+    /// </summary>
+    private string? RootOf(string full)
+    {
+        foreach (string candidate in Roots)
+        {
+            if (!IsInside(candidate, full)) continue;
+            if (Roots.Any(outer => !string.Equals(outer, candidate, PathComparison) && IsInside(outer, candidate) && !RealInside(outer, candidate))) continue;
+            return candidate;
+        }
+        return null;
+    }
+
+    /// <summary>Whether the real path of <paramref name="inner"/> lies inside the real path of <paramref name="outer"/> (false when either cannot be followed).</summary>
+    private static bool RealInside(string outer, string inner)
+    {
+        try
+        {
+            return IsInside(RealPath(outer), RealPath(inner));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>The real path of an open file, or <c>null</c> where the system does not tell it.</summary>
+    private static string? OpenedPath(SafeFileHandle handle)
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux())
+            {
+                bool added = false;
+                handle.DangerousAddRef(ref added);
+                try
+                {
+                    string? target = new FileInfo("/proc/self/fd/" + handle.DangerousGetHandle().ToInt64().ToString(CultureInfo.InvariantCulture)).LinkTarget;
+                    return target is not null && Path.IsPathRooted(target) ? target : null;
+                }
+                finally
+                {
+                    if (added) handle.DangerousRelease();
+                }
+            }
+            if (OperatingSystem.IsWindows())
+            {
+                var buffer = new char[1024];
+                uint length = GetFinalPathNameByHandle(handle, buffer, (uint)buffer.Length, 0);
+                if (length >= buffer.Length)
+                {
+                    buffer = new char[length + 1];
+                    length = GetFinalPathNameByHandle(handle, buffer, (uint)buffer.Length, 0);
+                }
+                if (length == 0 || length >= buffer.Length) return null;
+                return WithoutDevicePrefix(new string(buffer, 0, (int)length));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+            return null;
+        }
+        return null;
+    }
+
+    /// <summary>A Windows path without its <c>\\?\</c> prefix: <c>\\?\C:\a</c> is <c>C:\a</c>, <c>\\?\UNC\host\share</c> is <c>\\host\share</c>.</summary>
+    internal static string WithoutDevicePrefix(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) return @"\\" + path[8..];
+        return path.StartsWith(@"\\?\", StringComparison.Ordinal) ? path[4..] : path;
+    }
+
+    [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(SafeFileHandle file, [Out] char[] path, uint length, uint flags);
 
     private string EnsureRoot(string root)
     {
@@ -221,7 +336,9 @@ internal sealed class McpLocalFiles
         return root;
     }
 
-    private static bool IsInside(string root, string full) => string.Equals(root, full, PathComparison) || full.StartsWith(root + Path.DirectorySeparatorChar, PathComparison);
+    /// <summary>Whether <paramref name="full"/> is <paramref name="root"/> or inside it (a root that ends with a separator, <c>/</c> or <c>E:\</c>, holds every path that starts with it).</summary>
+    internal static bool IsInside(string root, string full) => string.Equals(root, full, PathComparison)
+        || full.StartsWith(Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar, PathComparison);
 
     /// <summary>
     /// Refuses a path that really leads out of its root: both are resolved as the system resolves them (every link on the way, also links
@@ -277,11 +394,35 @@ internal sealed class McpLocalFiles
                 continue;
             }
             if (++links > 40) throw new IOException("Too many links (a loop?) at " + next);
-            if (Path.IsPathRooted(target)) current = Path.GetPathRoot(target) ?? current;
-            string[] parts = target[(Path.IsPathRooted(target) ? (Path.GetPathRoot(target) ?? string.Empty).Length : 0)..]
-                .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            string[] parts;
+            if (OperatingSystem.IsWindows())
+            {
+                // Windows takes a link's target as text: a relative one from the link's folder with its ".." collapsed, a root-relative
+                // one (\foo) on the drive of the link; the result is walked again from its root.
+                string resolved = WindowsLinkTarget(current, WithoutDevicePrefix(target));
+                current = Path.GetPathRoot(resolved) ?? current;
+                parts = resolved[current.Length..].Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            }
+            else
+            {
+                if (Path.IsPathRooted(target)) current = Path.GetPathRoot(target) ?? current;
+                parts = target[(Path.IsPathRooted(target) ? (Path.GetPathRoot(target) ?? string.Empty).Length : 0)..]
+                    .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            }
             for (int index = parts.Length - 1; index >= 0; index--) pending.AddFirst(parts[index]);
         }
         return Path.TrimEndingDirectorySeparator(current);
+    }
+
+    /// <summary>
+    /// The full path a Windows link in <paramref name="folder"/> leads to: a fully qualified target as it is, a root-relative one
+    /// (<c>\foo</c>) on the folder's drive, a relative one from the folder; <c>..</c> collapsed as text, as Windows does.
+    /// </summary>
+    internal static string WindowsLinkTarget(string folder, string target)
+    {
+        string combined = Path.IsPathFullyQualified(target) ? target
+            : Path.IsPathRooted(target) && target.Length > 0 && target[0] is '\\' or '/' ? Path.Combine(Path.GetPathRoot(folder) ?? string.Empty, target.TrimStart('\\', '/'))
+            : Path.Combine(folder, target);
+        return Path.GetFullPath(combined);
     }
 }

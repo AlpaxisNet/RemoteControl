@@ -142,9 +142,10 @@ public sealed partial class RcSession
             return null;
         }
 
-        // RClib: a file the listing shows as empty is delivered at once (the server answers an empty file with "send failed").
+        // RClib: a file the listing shows as empty is delivered at once (the server answers an empty file with "send failed"). Not for
+        // the MCP view: its listings may be minutes old, so it always asks, and its caller reads "send failed" with a fresh listing.
         bool sameFolder = folder.Length == 0 || FolderKey(folder) == FolderKey(view.CurrentFolder);
-        if (sameFolder && view.Files.Any(entry => !entry.IsDirectory && entry.Size == 0 && entry.Name == name))
+        if (!ReferenceEquals(view, _mcp) && sameFolder && view.Files.Any(entry => !entry.IsDirectory && entry.Size == 0 && entry.Name == name))
         {
             view.RaiseFileReceived(path, Array.Empty<byte>());
             return Array.Empty<byte>();

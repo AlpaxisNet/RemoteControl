@@ -47,13 +47,20 @@ internal static partial class McpServerTools
 
     private static readonly string[] RcOutputKinds = { McpSessionJournal.Rc, McpSessionJournal.Server };
 
-    /// <summary>What a command gathered, and whether the server had finished (it was quiet) when the gathering stopped.</summary>
-    internal sealed record CommandOutput(IReadOnlyList<McpJournalEntry> Entries, bool Complete);
+    /// <summary>
+    /// What a command gathered, and whether all of the server's answer is in it: <paramref name="Cut"/> says why it may not be (nothing
+    /// came in time, the server was still writing, or lines were dropped or left out).
+    /// </summary>
+    internal sealed record CommandOutput(IReadOnlyList<McpJournalEntry> Entries, bool Complete, string Cut);
+
+    /// <summary>The most entries a gathering returns.</summary>
+    private const int MaximumCommandEntries = 1000;
 
     /// <summary>
     /// Sends an RC chat command and gathers what the server writes back (the entries of <paramref name="kinds"/>): it waits up to
     /// <c>collectMilliseconds</c> (or <paramref name="defaultMaximum"/>; at most 30 seconds) for the first line, and after that until the
-    /// server has said nothing for <paramref name="quiet"/>, however long the answer takes, but at most a minute more. The server's answer
+    /// server has said nothing for <paramref name="quiet"/>, however long the answer takes, but at most a minute more. A pause in the
+    /// middle of an answer longer than <paramref name="quiet"/> also ends it (the rest is in <c>rc_events</c>). The server's answer
     /// cannot be told from other lines that arrive meanwhile (other staff's chat), so the result may hold some.
     /// </summary>
     internal static async Task<CommandOutput> RunCommandAsync(McpToolContext c, McpSessionTarget target, string command, TimeSpan quiet, int defaultMaximum, string[]? kinds = null)
@@ -68,6 +75,7 @@ internal static partial class McpServerTools
         DateTimeOffset? first = null;
         DateTimeOffset last = DateTimeOffset.UtcNow;
         bool complete = true;
+        string cut = string.Empty;
         while (!c.Token.IsCancellationRequested)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -75,7 +83,13 @@ internal static partial class McpServerTools
             if (first is null)
             {
                 wait = end - now;
-                if (wait <= TimeSpan.Zero) break;
+                if (wait <= TimeSpan.Zero)
+                {
+                    complete = false;
+                    cut = "The server wrote nothing within " + (int)maximum.TotalMilliseconds + " ms. It may answer later (read rc_events with since " + since
+                        + "), or give a larger collectMilliseconds (at most 30000).";
+                    break;
+                }
             }
             else
             {
@@ -85,6 +99,7 @@ internal static partial class McpServerTools
                 if (ceiling <= TimeSpan.Zero)
                 {
                     complete = false;
+                    cut = "The server was still writing a minute after its first line; the rest is in rc_events (since " + since + ").";
                     break;
                 }
                 wait = silence < ceiling ? silence : ceiling;
@@ -98,8 +113,24 @@ internal static partial class McpServerTools
             }
             seen = target.Journal.Sequence;
         }
-        if (c.Token.IsCancellationRequested) complete = false;
-        return new CommandOutput(target.Journal.Read(since, kinds, 1000), complete);
+        if (c.Token.IsCancellationRequested)
+        {
+            complete = false;
+            cut = "The call was cancelled while the server was answering.";
+        }
+        IReadOnlyList<McpJournalEntry> entries = target.Journal.Read(since, kinds, MaximumCommandEntries);
+        // The journal keeps the last events only: a long answer may have pushed its own beginning out, or be more than is returned.
+        if (target.Journal.Oldest > since + 1)
+        {
+            complete = false;
+            cut = "The answer was longer than the journal keeps, so its first lines are lost; narrow the command.";
+        }
+        else if (entries.Count == MaximumCommandEntries)
+        {
+            complete = false;
+            cut = "Only the first " + MaximumCommandEntries + " entries are returned; read the rest with rc_events since " + entries[^1].Sequence + ".";
+        }
+        return new CommandOutput(entries, complete, cut);
     }
 
     public static async Task<string> ServerCommandsAsync(McpToolContext c)
@@ -124,6 +155,7 @@ internal static partial class McpServerTools
             writer.WriteStartObject();
             writer.WriteBoolean("fromServer", answered);
             if (answered) writer.WriteBoolean("complete", help.Complete);
+            if (answered && !help.Complete) McpJson.Text(writer, "cut", help.Cut);
             if (!answered) writer.WriteString("note", "The server listed no commands for /help; these are the commands of the Alpaxis GServer.");
             writer.WriteString("hint", "Run a command with rc_command. Other tools do more for some: rc_search_scripts (serverSide for /scriptscan, which also reads level scripts), rc_script_help (fromServer for /scripthelp), rc_update_levels, rc_get_player_info, rc_find_missing_files.");
             writer.WriteStartArray("commands");
@@ -167,12 +199,12 @@ internal static partial class McpServerTools
             if (!scopes.Contains(scope)) scopes.Add(scope);
         }
         if (scopes.Count == 0 || scopes.Contains("all")) scopes = new List<string> { "all" };
-        var scans = new List<(string Command, IReadOnlyList<McpJournalEntry> Lines, bool Complete)>();
+        var scans = new List<(string Command, IReadOnlyList<McpJournalEntry> Lines, bool Complete, string Cut)>();
         foreach (string scope in scopes)
         {
             string command = "/scriptscan " + scope + " " + query;
             CommandOutput output = await RunCommandAsync(c, c.Target, command, TimeSpan.FromMilliseconds(1500), 15000, RcOutputKinds).ConfigureAwait(true);
-            scans.Add((command, output.Entries, output.Complete));
+            scans.Add((command, output.Entries, output.Complete, output.Cut));
         }
         return JsonText.Write(writer =>
         {
@@ -181,7 +213,7 @@ internal static partial class McpServerTools
             string[] output = scans.SelectMany(scan => scan.Lines).SelectMany(entry => entry.Text.Split('\n')).ToArray();
             writer.WriteNumber("lines", output.Length);
             writer.WriteBoolean("complete", scans.All(scan => scan.Complete));
-            if (!scans.All(scan => scan.Complete)) writer.WriteString("cut", "The server was still writing when the gathering stopped (a minute after its first line); search a narrower kind.");
+            if (!scans.All(scan => scan.Complete)) McpJson.Text(writer, "cut", string.Join(" ", scans.Where(scan => !scan.Complete).Select(scan => scan.Command + ": " + scan.Cut)));
             McpJson.Strings(writer, "output", output);
             if (output.Length == 0) writer.WriteString("note", "The server wrote nothing back: it may not know /scriptscan, or nothing holds the text.");
             else writer.WriteString("note", "The output is what the server wrote meanwhile; another staff member's chat at the same moment would be in it too.");
@@ -202,6 +234,7 @@ internal static partial class McpServerTools
             McpJson.Text(writer, "server", target.ServerName);
             McpJson.Text(writer, "command", "/scripthelp " + text);
             writer.WriteBoolean("complete", result.Complete);
+            if (!result.Complete) McpJson.Text(writer, "cut", result.Cut);
             McpJson.Strings(writer, "output", lines.SelectMany(entry => entry.Text.Split('\n')));
             if (lines.Count == 0) writer.WriteString("note", "The server wrote nothing back.");
             writer.WriteEndObject();
