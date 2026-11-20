@@ -9,7 +9,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <Deterministic>true</Deterministic>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Product>Remote Control</Product>
     <Company>Alpaxis</Company>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>

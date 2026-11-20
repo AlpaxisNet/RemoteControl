@@ -38,8 +38,8 @@ what changed is underneath:
 
 | | |
 | --- | --- |
-| Code | about 54,000 lines of documented C# in 14 libraries, 23,000 lines of tests |
-| Tests | **1,473**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
+| Code | about 58,000 lines of documented C# in 14 libraries, 26,000 lines of tests |
+| Tests | **1,557**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
 | Systems | Windows 10 and 11 (x64), Linux (x64, X11 or XWayland); packages built by GitHub Actions on every tag |
 | Network | the list server, the RC and NC connections and their file transfers in managed code; tried live against an Alpaxis network |
 
@@ -49,7 +49,7 @@ what changed is underneath:
 unpack it anywhere and start `RemoteControl` (`RemoteControl.exe`):
 
 ```bash
-tar -xzf RemoteControl-1.1.1-linux-x64.tar.gz && cd RemoteControl-1.1.1-linux-x64 && ./RemoteControl
+tar -xzf RemoteControl-1.2.0-linux-x64.tar.gz && cd RemoteControl-1.2.0-linux-x64 && ./RemoteControl
 ```
 
 The folder holds the program, the few native libraries of the user interface, and `images/`, `sounds/`, `fonts/`,
