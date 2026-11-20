@@ -48,6 +48,8 @@
   <DockPanel Margin="5">
     <DockPanel DockPanel.Dock="Bottom" Margin="5,5,5,0">
       <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" />
+      <Button x:Name="ImportMissingButton" DockPanel.Dock="Right" Content="Import Missing…" HorizontalContentAlignment="Center" Margin="0,0,6,0"
+              ToolTip.Tip="Find the files the server's scripts and NPCs name and it lacks in a folder of this computer, and upload them" />
       <TextBlock x:Name="StatusLabel" Text="0 files" VerticalAlignment="Center" />
     </DockPanel>
     <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource RcControlCornerRadius}" Padding="5" Margin="5">

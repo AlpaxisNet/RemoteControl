@@ -90,6 +90,10 @@ internal sealed class FilesSession : ISyncStatus
     /// <returns>The window, or null.</returns>
     public Window? ShowServerBackup() => _ended ? null : Context.Windows.ShowSingle(ToolIds.ServerBackup, () => new ServerBackupWindow(Context));
 
+    /// <summary>Shows the Import Missing window.</summary>
+    /// <returns>The window, or null.</returns>
+    public Window? ShowImportMissing() => _ended ? null : Context.Windows.ShowSingle(ToolIds.ImportMissing, () => new ImportMissingWindow(Context));
+
     /// <summary>Shows the sync window; with sync off it says how to turn it on.</summary>
     /// <returns>The window, or null.</returns>
     public Window? ShowSync()

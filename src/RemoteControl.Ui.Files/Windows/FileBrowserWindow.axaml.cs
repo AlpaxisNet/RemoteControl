@@ -73,6 +73,7 @@ internal sealed partial class FileBrowserWindow : RcWindow, IFileDropTarget
         ModernView.ItemsSource = ModernItems;
 
         CloseButton.Click += On.Click(() => Close(), "FileBrowser.Close");
+        ImportMissingButton.Click += On.Click(() => _context?.OpenTool(ToolIds.ImportMissing), "FileBrowser.ImportMissing");
         UpButton.Click += On.Click(() => NavigateTo(RemotePaths.Parent(_currentFolder)), "FileBrowser.Up");
         RefreshButton.Click += On.Click(() => RefreshCurrent(), "FileBrowser.Refresh");
         AddressBox.KeyDown += UiSafe.Handler<KeyEventArgs>((_, e) =>

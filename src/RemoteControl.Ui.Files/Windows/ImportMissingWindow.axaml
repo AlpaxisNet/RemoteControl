@@ -1,0 +1,66 @@
+<rc:RcWindow xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:rc="using:RemoteControl.Ui.Common"
+             xmlns:local="using:RemoteControl.Ui.Files"
+             x:Class="RemoteControl.Ui.Files.ImportMissingWindow"
+             Title="Import Missing" Width="760" Height="600" MinWidth="560" MinHeight="420">
+  <rc:RcWindow.Styles>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource RcDisabledTextBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Border.frame">
+      <Setter Property="BorderBrush" Value="{DynamicResource RcBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RcControlCornerRadius}" />
+      <Setter Property="Padding" Value="8" />
+    </Style>
+  </rc:RcWindow.Styles>
+  <DockPanel Margin="10">
+    <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+      <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="Close" MinWidth="80" HorizontalContentAlignment="Center" Margin="6,0,0,0" />
+      <Button x:Name="CancelButton" DockPanel.Dock="Right" Content="Cancel" MinWidth="80" HorizontalContentAlignment="Center" IsEnabled="False" Margin="6,0,0,0" />
+      <Button x:Name="UploadButton" DockPanel.Dock="Right" Content="Upload" MinWidth="110" HorizontalContentAlignment="Center" IsEnabled="False" />
+      <TextBlock x:Name="CountsLabel" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+    <Border DockPanel.Dock="Top" Classes="frame" Margin="0,0,0,8">
+      <StackPanel Spacing="6">
+        <TextBlock Text="Folder to search on this computer" FontWeight="SemiBold" />
+        <DockPanel>
+          <Button x:Name="FindButton" DockPanel.Dock="Right" Content="Find missing files" Margin="6,0,0,0" />
+          <Button x:Name="ChooseFolderButton" DockPanel.Dock="Right" Content="Browse…" Margin="6,0,0,0" />
+          <TextBox x:Name="FolderBox" Watermark="A folder on this computer, such as your UGD" />
+        </DockPanel>
+        <TextBlock x:Name="ExplanationText" Classes="hint"
+                   Text="Asks the server which files its levels, NPCs, weapons, classes and animations name and it does not have, and the folder it would look for each in. Every file of those names under this folder, in any subfolder, is offered. Only the files you tick and confirm are uploaded, each into the server's folder; nothing on the server is replaced." />
+      </StackPanel>
+    </Border>
+    <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,8">
+      <TextBlock x:Name="PhaseLabel" Text="Ready." TextWrapping="Wrap" />
+      <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Value="0" Height="6" MinHeight="6" />
+    </StackPanel>
+    <Border BorderBrush="{DynamicResource RcBorderBrush}" BorderThickness="1" Background="{DynamicResource RcEditorBrush}">
+      <ListBox x:Name="RowsList" Background="Transparent" SelectionMode="Single">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="local:ImportMissingItem">
+            <DockPanel Margin="0,2">
+              <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Ticked, Mode=TwoWay}" IsEnabled="{Binding CanTick}" VerticalAlignment="Top" Margin="0,0,6,0" />
+              <Button DockPanel.Dock="Right" Content="{Binding AlternativesText}" Command="{Binding ChooseOther}" IsVisible="{Binding HasAlternatives}" VerticalAlignment="Center" Padding="6,2" Margin="6,0,0,0" />
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding KindText}" Classes="hint" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding FolderText}" Classes="hint" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="{Binding UsedText}" Classes="hint" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding LocalText}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Status}" Classes="hint" />
+              </StackPanel>
+            </DockPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+  </DockPanel>
+</rc:RcWindow>

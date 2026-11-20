@@ -103,6 +103,7 @@
       <MenuItem Header="Files">
         <MenuItem Name="MenuFileBrowser" Header="File Browser" />
         <MenuItem Name="MenuServerBackup" Header="Server Backup" />
+        <MenuItem Name="MenuImportMissing" Header="Import Missing" />
       </MenuItem>
       <MenuItem Header="Configuration">
         <MenuItem Name="MenuRcOptions" Header="RC Options" />

@@ -18,6 +18,7 @@ public sealed class MainWindowTests
     [
         ToolIds.PlayerList, ToolIds.Accounts, ToolIds.Toalls, ToolIds.RcOptions, ToolIds.FileBrowser, ToolIds.Sync, ToolIds.ServerOptions, ToolIds.ServerFlags,
         ToolIds.FolderConfig, ToolIds.Npcs, ToolIds.Classes, ToolIds.Weapons, ToolIds.Levels, ToolIds.LocalNpcs, ToolIds.Extensions, ToolIds.DebugInfo, ToolIds.ScriptEditor,
+        ToolIds.ImportMissing,
     ];
 
     private static TestSession NewSession(Func<Core.RcOptions, Core.RcOptions>? options = null, string? theme = null)
@@ -55,6 +56,7 @@ public sealed class MainWindowTests
         var expected = new (string Menu, string Tool)[]
         {
             ("MenuPlayerList", ToolIds.PlayerList), ("MenuAccounts", ToolIds.Accounts), ("MenuToalls", ToolIds.Toalls), ("MenuFileBrowser", ToolIds.FileBrowser),
+            ("MenuImportMissing", ToolIds.ImportMissing),
             ("MenuRcOptions", ToolIds.RcOptions), ("MenuServerOptions", ToolIds.ServerOptions), ("MenuFolderConfig", ToolIds.FolderConfig), ("MenuNpcs", ToolIds.Npcs),
             ("MenuClasses", ToolIds.Classes), ("MenuWeapons", ToolIds.Weapons), ("MenuServerFlags", ToolIds.ServerFlags), ("MenuLocalNpcs", ToolIds.LocalNpcs),
             ("MenuExtensions", ToolIds.Extensions),

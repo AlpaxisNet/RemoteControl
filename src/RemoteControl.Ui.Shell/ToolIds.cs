@@ -30,6 +30,9 @@ public static class ToolIds
     /// <summary>The server backup window (Ui.Files): every file the account may read, downloaded into a local folder. One per session.</summary>
     public const string ServerBackup = "serverbackup";
 
+    /// <summary>The Import Missing window (Ui.Files): asks the server for the files its scripts and NPCs name and it lacks, finds them in a local folder and uploads what is ticked. One per session.</summary>
+    public const string ImportMissing = "importmissing";
+
     /// <summary>The server options editor (Ui.Scripts). One per session.</summary>
     public const string ServerOptions = "serveroptions";
 
