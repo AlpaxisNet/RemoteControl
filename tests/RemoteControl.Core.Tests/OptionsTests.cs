@@ -103,7 +103,7 @@ public sealed class OptionsTests
         Assert.Contains("\nafktimeout=15\n", text);
         Assert.Contains("\nwebbrowsers=firefox,mozilla,konqueror,netscape\n", text);
         Assert.Contains("\niconhelppressed=rc_help_pressed.png\n", text);
-        Assert.EndsWith("mcpfileroots=.\nmcpserverscope=\n", text);
+        Assert.EndsWith("mcpfileroots=.\nmcpserverscope=\nimportmissingfolder=\n", text);
         Assert.Equal(RcOptions.Keys.Count, text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
     }
 
@@ -125,6 +125,23 @@ public sealed class OptionsTests
         Assert.True(o.RemoveBlockComments);
         Assert.Equal(["firefox", "mozilla", "konqueror", "netscape"], o.WebBrowsers.ToArray());
         Assert.Equal("rc_guiscripts_pressed.png", o.ButtonImagesPressed[14]);
+    }
+
+    [Fact]
+    public void The_import_missing_folder_is_remembered_and_an_older_file_without_it_still_reads()
+    {
+        using var install = new TestInstall();
+        File.WriteAllText(install.Paths.OptionsFile, "theme=nord\n");
+        var store = new OptionsStore(install.Paths);
+        store.Load();
+        Assert.Equal(string.Empty, store.Current.ImportMissingFolder);
+        Assert.Equal(OptionsSaveStatus.Saved, store.Update(o => o with { ImportMissingFolder = "/home/me/UGD" }));
+        Assert.Contains("\nimportmissingfolder=/home/me/UGD\n", File.ReadAllText(install.Paths.OptionsFile));
+        Assert.Contains("\ntheme=nord\n", File.ReadAllText(install.Paths.OptionsFile));
+        var again = new OptionsStore(install.Paths);
+        again.Load();
+        Assert.Equal("/home/me/UGD", again.Current.ImportMissingFolder);
+        Assert.Empty(again.UnknownEntries);
     }
 
     [Fact]

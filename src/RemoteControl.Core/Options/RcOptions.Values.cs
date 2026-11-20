@@ -318,6 +318,10 @@ public sealed partial record RcOptions
     public string McpServerScope { get => _mcpServerScope; init => _mcpServerScope = value ?? string.Empty; }
     private readonly string _mcpServerScope = "";
 
+    /// <summary>The folder on this computer the Import Missing window last searched; empty until one was chosen. Key <c>importmissingfolder</c>.</summary>
+    public string ImportMissingFolder { get => _importMissingFolder; init => _importMissingFolder = value ?? string.Empty; }
+    private readonly string _importMissingFolder = "";
+
     /// <summary>The names of the 15 graphical-menu buttons, in the order of <see cref="ButtonImages"/>; the keys are <c>icon&lt;name&gt;</c> and <c>icon&lt;name&gt;pressed</c>.</summary>
     public static ImmutableArray<string> ButtonNames { get; } = ImmutableArray.Create("playerlist", "filebrowser", "accounts", "toalls", "options", "serverflags", "folderoptions", "serveroptions", "localnpcs", "classlist", "weaponlist", "npclist", "help", "levellist", "guiscripts");
 
@@ -430,6 +434,7 @@ public sealed partial record RcOptions
         fields.Add(OptionField.Flag("mcpapprovenpc", o => o.McpApproveNpc, (o, v) => o with { McpApproveNpc = v }));
         fields.Add(OptionField.Text("mcpfileroots", o => o.McpFileRoots, (o, v) => o with { McpFileRoots = v }));
         fields.Add(OptionField.Text("mcpserverscope", o => o.McpServerScope, (o, v) => o with { McpServerScope = v }));
+        fields.Add(OptionField.Text("importmissingfolder", o => o.ImportMissingFolder, (o, v) => o with { ImportMissingFolder = v }));
         return fields.ToImmutable();
     }
 }

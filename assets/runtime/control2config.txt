@@ -119,3 +119,4 @@ mcpapproveclass=false
 mcpapprovenpc=false
 mcpfileroots=.
 mcpserverscope=
+importmissingfolder=

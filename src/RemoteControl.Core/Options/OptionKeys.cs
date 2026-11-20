@@ -282,6 +282,9 @@ public static class OptionKeys
     /// <summary>The key of <see cref="RcOptions.McpServerScope"/>.</summary>
     public const string McpServerScope = "mcpserverscope";
 
+    /// <summary>The key of <see cref="RcOptions.ImportMissingFolder"/>.</summary>
+    public const string ImportMissingFolder = "importmissingfolder";
+
     /// <summary>The key of the picture of a graphical-menu button.</summary>
     /// <param name="buttonName">One of <see cref="RcOptions.ButtonNames"/>.</param>
     /// <param name="pressed">The pressed picture instead of the normal one.</param>

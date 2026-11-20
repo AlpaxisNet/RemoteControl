@@ -12,7 +12,7 @@ public sealed class OptionsWindowTests
     private static readonly HashSet<string> s_withoutUi =
     [
         OptionKeys.DontSavePassword, OptionKeys.GraphicalMenu, OptionKeys.DarkMode, OptionKeys.ShowBuddies, OptionKeys.WebBrowsers, OptionKeys.ColorLink,
-        OptionKeys.ColorAlert, OptionKeys.TimestampFormat, OptionKeys.NoHtmlInPms, OptionKeys.NoHtmlImages,
+        OptionKeys.ColorAlert, OptionKeys.TimestampFormat, OptionKeys.NoHtmlInPms, OptionKeys.NoHtmlImages, OptionKeys.ImportMissingFolder,
     ];
 
     private static OptionsWindow Show(TestSession test) => test.Show(new OptionsWindow(test.Context), 460, 520);
