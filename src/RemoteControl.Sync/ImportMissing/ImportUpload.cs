@@ -37,4 +37,6 @@ public sealed record ImportProgress(int Index, int Count, ImportRow Row, long Se
 /// <summary>The end of an upload run.</summary>
 /// <param name="Results">The result of every row that was handled, in order.</param>
 /// <param name="Cancelled">Whether the run was cancelled before every row was handled.</param>
-public sealed record ImportRun(IReadOnlyList<ImportResult> Results, bool Cancelled);
+/// <param name="StoppedBecause">Why the run ended before every row was handled although nobody cancelled it (the server stopped answering),
+/// in a sentence; otherwise <c>null</c>.</param>
+public sealed record ImportRun(IReadOnlyList<ImportResult> Results, bool Cancelled, string? StoppedBecause = null);

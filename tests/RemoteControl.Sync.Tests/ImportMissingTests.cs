@@ -291,7 +291,7 @@ public sealed class ImportMissingTests
             Assert.False(run.Cancelled);
             Assert.Equal(new[] { ImportOutcome.Uploaded, ImportOutcome.Uploaded, ImportOutcome.Uploaded, ImportOutcome.Refused }, run.Results.Select(result => result.Outcome).ToArray());
             Assert.Equal("uploaded", run.Results[0].Message);
-            Assert.Equal("not in your folder rights", run.Results[3].Message);
+            Assert.Equal("Folder world/other/ is not in your folder rights", run.Results[3].Message);
             Assert.Equal(
                 new[] { "world/images/a.png", "world/images/big.png", "world/heads/head1.png", "world/other/nope.png" },
                 session.CallsTo("BackupFileBrowser.UploadAsync").Select(call => call.Argument<string>(0)).ToArray());
@@ -331,7 +331,7 @@ public sealed class ImportMissingTests
             {
                 session.RaiseFileBrowserMessage("Uploaded file b.png");
                 session.RaiseFileBrowserMessage("Could not upload world/images/b.png: a file of that name exists");
-                session.RaiseFileBrowserMessage("Folder world/images/ is not in your folder rights");
+                session.RaiseFileBrowserMessage("Folder world/heads/ is not in your folder rights");
                 return "Could not upload world/images/a.png: the disk refused it";
             };
             ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a) }, temp.Path);
@@ -474,6 +474,329 @@ public sealed class ImportMissingTests
             ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a) }, temp.Path);
             Assert.Equal(ImportOutcome.Failed, Assert.Single(run.Results).Outcome);
         }
+    }
+
+    // ---- The request's waits (section 5): searching, one at a time, a lost connection ---------------------------------------------
+
+    private static async Task<bool> StaysOpenAsync(Task task, int milliseconds = 300)
+    {
+        await Task.WhenAny(task, Task.Delay(milliseconds));
+        return !task.IsCompleted;
+    }
+
+    [Fact]
+    public async Task After_searching_the_request_waits_far_longer_than_the_time_for_a_first_answer_and_then_returns_the_result()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesSearching();
+        };
+        var told = new List<MissingFilesProgressEventArgs>();
+        Task<MissingFilesAnswer> request = importer.RequestAsync(default, told.Add);
+        Assert.True(await StaysOpenAsync(request));
+        Assert.True(Assert.Single(told).Searching);
+        session.RaiseMissingFiles(new[] { Missing("a.png") });
+        MissingFilesAnswer answer = await request;
+        Assert.False(answer.TimedOut);
+        Assert.False(answer.ConnectionLost);
+        Assert.Equal("a.png", Assert.Single(answer.Files).Name);
+    }
+
+    [Fact]
+    public async Task A_part_of_the_result_is_a_first_answer_too_and_an_error_after_searching_ends_the_wait()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesPart(1, 2);
+        };
+        Task<MissingFilesAnswer> request = importer.RequestAsync();
+        Assert.True(await StaysOpenAsync(request));
+        session.RaiseMissingFilesError("The search failed.");
+        Assert.Equal("The search failed.", (await request).Error);
+    }
+
+    [Fact]
+    public async Task A_server_that_answers_nothing_at_all_is_one_that_does_not_know_the_request()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        MissingFilesAnswer answer = await importer.RequestAsync();
+        Assert.True(answer.TimedOut);
+        Assert.False(answer.ConnectionLost);
+        // The request ended: the next one is sent again.
+        await importer.RequestAsync();
+        Assert.Equal(2, session.CallsTo(nameof(IRcSession.RequestMissingFilesAsync)).Count());
+    }
+
+    [Fact]
+    public async Task A_lost_connection_ends_the_wait_with_words_that_are_not_those_of_an_old_server()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesSearching();
+        };
+        Task<MissingFilesAnswer> request = importer.RequestAsync();
+        Assert.True(await StaysOpenAsync(request));
+        session.RaiseDisconnected();
+        MissingFilesAnswer answer = await request;
+        Assert.True(answer.ConnectionLost);
+        Assert.False(answer.TimedOut);
+        Assert.Empty(answer.Files);
+    }
+
+    [Fact]
+    public async Task A_replaced_session_ends_the_wait_as_a_lost_connection_and_a_closed_one_is_not_asked()
+    {
+        using var session = new FakeRcSession();
+        using var replaced = new CancellationTokenSource();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) }, replaced.Token);
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesSearching();
+        };
+        Task<MissingFilesAnswer> request = importer.RequestAsync();
+        Assert.True(await StaysOpenAsync(request));
+        replaced.Cancel();
+        Assert.True((await request).ConnectionLost);
+
+        using var closed = new FakeRcSession { IsConnected = false };
+        MissingFilesAnswer none = await new MissingFilesImporter(closed, Quick()).RequestAsync();
+        Assert.True(none.ConnectionLost);
+        Assert.Empty(closed.CallsTo(nameof(IRcSession.RequestMissingFilesAsync)));
+    }
+
+    [Fact]
+    public async Task Cancelling_ends_the_wait_after_searching_and_the_request_can_be_joined_again()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesSearching();
+        };
+        using var cancel = new CancellationTokenSource();
+        Task<MissingFilesAnswer> first = importer.RequestAsync(cancel.Token);
+        Assert.True(await StaysOpenAsync(first));
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+
+        // The search still runs on the server: a new call joins the request, is told it is searching at once and gets its result.
+        var told = new List<MissingFilesProgressEventArgs>();
+        Task<MissingFilesAnswer> second = importer.RequestAsync(default, told.Add);
+        Assert.True(Assert.Single(told).Searching);
+        session.RaiseMissingFiles(new[] { Missing("a.png") });
+        Assert.Single((await second).Files);
+        Assert.Single(session.CallsTo(nameof(IRcSession.RequestMissingFilesAsync)));
+    }
+
+    [Fact]
+    public async Task A_second_request_while_one_is_outstanding_is_not_sent_and_gets_the_same_result()
+    {
+        using var session = new FakeRcSession();
+        var importer = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        var other = new MissingFilesImporter(session, new MissingFilesImporterOptions { RequestTimeout = TimeSpan.FromMilliseconds(40) });
+        session.OnCall = call =>
+        {
+            if (call.Method == nameof(IRcSession.RequestMissingFilesAsync)) session.RaiseMissingFilesSearching();
+        };
+        Task<MissingFilesAnswer> first = importer.RequestAsync();
+        Task<MissingFilesAnswer> second = other.RequestAsync();
+        Assert.True(await StaysOpenAsync(Task.WhenAll(first, second)));
+        session.RaiseMissingFiles(new[] { Missing("a.png"), Missing("b.png") });
+        Assert.Equal(2, (await first).Files.Count);
+        Assert.Equal(2, (await second).Files.Count);
+        Assert.Single(session.CallsTo(nameof(IRcSession.RequestMissingFilesAsync)));
+    }
+
+    // ---- Folder rights, the limit, the upload's answers ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_right_that_ends_in_a_slash_covers_every_file_of_its_folder_as_on_the_server()
+    {
+        using var temp = new TempFolder();
+        Write(temp.Path, "head1.png", 5);
+        LocalFileIndex index = await LocalFileIndex.BuildAsync(temp.Path);
+        var rights = new[] { new FileBrowserFolder("rw", "world/heads/") };
+        ImportPlan plan = ImportPlanner.Plan(new[] { Missing("head1.png", MissingFileKind.Head, "world/heads/") }, index, rights, 20);
+        Assert.Equal(ImportProblem.None, plan.Rows[0].Problem);
+        Assert.True(rights[0].Covers("world/heads/", "anything.png"));
+        Assert.False(rights[0].Covers("world/images/", "anything.png"));
+        Assert.False(new FileBrowserFolder("rw", "world/*").Covers("world/heads/", "a.png"));
+    }
+
+    [Fact]
+    public void The_fake_server_judges_by_the_servers_rule_so_that_a_difference_from_the_clients_method_shows()
+    {
+        var slash = new FileBrowserFolder("rw", "world/heads/");
+        Assert.True(FakeFileBrowser.ServerRuleAllowsWrite(slash, "world/heads/", "x.png"));
+        Assert.False(FakeFileBrowser.ServerRuleAllowsWrite(new FileBrowserFolder("r", "world/heads/"), "world/heads/", "x.png"));
+        Assert.False(FakeFileBrowser.ServerRuleAllowsWrite(new FileBrowserFolder("rw", "*"), "world/heads/", "x.png"));
+        Assert.True(FakeFileBrowser.ServerRuleAllowsWrite(new FileBrowserFolder("rw", "world/heads/h*.png"), "world/heads/head1.png", "head1.png") == false);
+        // The client's method compares the folder without regard to case; the server's rule does not.
+        var lower = new FileBrowserFolder("rw", "world/heads/*");
+        Assert.True(lower.Covers("World/Heads/", "x.png"));
+        Assert.False(FakeFileBrowser.ServerRuleAllowsWrite(lower, "World/Heads/", "x.png"));
+    }
+
+    [Fact]
+    public async Task A_limit_of_zero_means_the_server_named_none_and_nothing_is_checked_against_it()
+    {
+        using var temp = new TempFolder();
+        string big = Write(temp.Path, "big.png", 5000);
+        LocalFileIndex index = await LocalFileIndex.BuildAsync(temp.Path);
+        ImportPlan plan = ImportPlanner.Plan(new[] { Missing("big.png") }, index, Rights, maxUploadSize: 0);
+        Assert.Equal(ImportProblem.None, plan.Rows[0].Problem);
+        Assert.Equal(ImportProblem.TooLarge, ImportPlanner.Plan(new[] { Missing("big.png") }, index, Rights, maxUploadSize: 100).Rows[0].Problem);
+
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.MaxUploadFileSize = 0;
+            Assert.Equal(0, importer.MaxUploadSize);
+            ImportRun run = await importer.UploadAsync(plan.Rows, temp.Path);
+            Assert.Equal(ImportOutcome.Uploaded, Assert.Single(run.Results).Outcome);
+            Assert.Equal(5000, session.FakeBackupFileBrowser.RemoteFiles["world/images/big.png"].Length);
+            Assert.NotNull(big);
+        }
+    }
+
+    [Fact]
+    public async Task A_file_over_what_the_program_sends_is_refused_before_it_is_read()
+    {
+        using var temp = new TempFolder();
+        string path = Path.Combine(temp.Path, "huge.png");
+        using (var stream = new FileStream(path, FileMode.CreateNew)) stream.SetLength(ImportUploader.MaximumBytes + 1);
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.MaxUploadFileSize = 0;
+            ImportRun run = await importer.UploadAsync(new[] { Row("huge.png", path) }, temp.Path);
+            Assert.Equal(ImportOutcome.Failed, Assert.Single(run.Results).Outcome);
+            Assert.Contains("256 MiB", run.Results[0].Message, StringComparison.Ordinal);
+            Assert.Empty(session.CallsTo("BackupFileBrowser.UploadAsync"));
+        }
+    }
+
+    [Fact]
+    public async Task What_the_server_said_before_the_row_was_sent_is_not_its_answer()
+    {
+        using var temp = new TempFolder();
+        string a = Write(temp.Path, "a.png");
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.FakeBackupFileBrowser.UploadAnswer = (_, _) => null;
+            // A late "Uploaded file a.png" of an earlier send arrives when the row starts, before its own upload is sent.
+            var progress = new SyncProgress<ImportProgress>(p =>
+            {
+                if (p.Result is null && p.Sent == 0) session.RaiseFileBrowserMessage("Uploaded file a.png");
+            });
+            ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a) }, temp.Path, progress);
+            Assert.Equal(ImportOutcome.NoAnswer, Assert.Single(run.Results).Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task A_refusal_names_the_rows_folder_and_name_and_another_folders_refusal_is_not_taken()
+    {
+        using var temp = new TempFolder();
+        string a = Write(temp.Path, "a.png");
+        string b = Write(temp.Path, "b.png");
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.FakeBackupFileBrowser.UploadAnswer = (path, _) =>
+            {
+                session.RaiseFileBrowserMessage("Could not upload world/heads/a.png: the other a.png was refused");
+                session.RaiseFileBrowserMessage("Could not upload a.png: no folder open");
+                return path.EndsWith("a.png", StringComparison.Ordinal) ? "Could not upload world/images/a.png: the disk refused it" : "\0";
+            };
+            ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a), Row("b.png", b) }, temp.Path);
+            Assert.Equal(ImportOutcome.Refused, run.Results[0].Outcome);
+            Assert.Equal("the disk refused it", run.Results[0].Message);
+            Assert.Equal(ImportOutcome.Uploaded, run.Results[1].Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task The_servers_refusal_of_the_folder_is_the_reason_the_row_shows()
+    {
+        using var temp = new TempFolder();
+        string a = Write(temp.Path, "a.png");
+        string b = Write(temp.Path, "b.png");
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            // The fake plays the server's two messages: the folder's refusal, then the upload's own "no folder open".
+            ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a, "world/elsewhere/"), Row("b.png", b) }, temp.Path);
+            Assert.Equal(ImportOutcome.Refused, run.Results[0].Outcome);
+            Assert.Equal("Folder world/elsewhere/ is not in your folder rights", run.Results[0].Message);
+            Assert.Equal(ImportOutcome.Uploaded, run.Results[1].Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task Three_uploads_in_a_row_without_any_answer_end_the_run_and_an_answer_in_between_starts_the_count_again()
+    {
+        using var temp = new TempFolder();
+        ImportRow[] rows = Enumerable.Range(0, 6).Select(number => Row($"f{number}.png", Write(temp.Path, $"f{number}.png"))).ToArray();
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.FakeBackupFileBrowser.UploadAnswer = (_, _) => null;
+            ImportRun run = await importer.UploadAsync(rows, temp.Path);
+            Assert.False(run.Cancelled);
+            Assert.Equal(3, run.Results.Count);
+            Assert.All(run.Results, result => Assert.Equal(ImportOutcome.NoAnswer, result.Outcome));
+            Assert.Contains("3 uploads in a row", run.StoppedBecause, StringComparison.Ordinal);
+            Assert.Equal(3, session.CallsTo("BackupFileBrowser.UploadAsync").Count());
+        }
+
+        (FakeRcSession again, MissingFilesImporter other) = Server();
+        using (again)
+        {
+            again.FakeBackupFileBrowser.UploadAnswer = (path, _) => path.EndsWith("f2.png", StringComparison.Ordinal) ? "\0" : null;
+            ImportRun run = await other.UploadAsync(rows.Take(5).ToArray(), temp.Path);
+            Assert.Equal(5, run.Results.Count);
+            Assert.Null(run.StoppedBecause);
+        }
+    }
+
+    [Fact]
+    public async Task Whatever_goes_wrong_with_one_file_is_that_rows_result_and_the_run_goes_on()
+    {
+        using var temp = new TempFolder();
+        string a = Write(temp.Path, "a.png");
+        string b = Write(temp.Path, "b.png");
+        (FakeRcSession session, MissingFilesImporter importer) = Server();
+        using (session)
+        {
+            session.FakeBackupFileBrowser.UploadAnswer = (path, _) => path.EndsWith("a.png", StringComparison.Ordinal) ? throw new InvalidOperationException("odd") : "\0";
+            ImportRun run = await importer.UploadAsync(new[] { Row("a.png", a), Row("b.png", b) }, temp.Path);
+            Assert.Equal(ImportOutcome.Failed, run.Results[0].Outcome);
+            Assert.Contains("odd", run.Results[0].Message, StringComparison.Ordinal);
+            Assert.Equal(ImportOutcome.Uploaded, run.Results[1].Outcome);
+        }
+    }
+
+    [Fact]
+    public async Task The_search_stops_at_the_next_entry_when_cancelled_whatever_the_entry_is()
+    {
+        using var temp = new TempFolder();
+        for (int number = 0; number < 50; number++) Write(temp.Path, $"unwanted{number}.png");
+        using var cancel = new CancellationTokenSource();
+        int entries = 0;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => LocalFileIndex.BuildWithHookAsync(temp.Path, new HashSet<string> { "wanted.png" }, cancel.Token, () =>
+        {
+            if (++entries == 5) cancel.Cancel();
+        }));
+        Assert.Equal(5, entries);
     }
 }
 

@@ -86,7 +86,7 @@ public static class ImportPlanner
     /// <param name="files">The server's missing files.</param>
     /// <param name="index">The index of the local folder.</param>
     /// <param name="rights">The account's folder rights (the folder list of the file browser).</param>
-    /// <param name="maxUploadSize">The server's upload limit in bytes.</param>
+    /// <param name="maxUploadSize">The server's upload limit in bytes; 0 when the server named none (nothing is checked against it).</param>
     /// <returns>The plan.</returns>
     public static ImportPlan Plan(IEnumerable<MissingFile> files, LocalFileIndex index, IReadOnlyList<FileBrowserFolder> rights, long maxUploadSize)
     {
@@ -104,7 +104,7 @@ public static class ImportPlanner
     /// <param name="row">The row.</param>
     /// <param name="path">The alternative's full path.</param>
     /// <param name="rights">The account's folder rights.</param>
-    /// <param name="maxUploadSize">The server's upload limit in bytes.</param>
+    /// <param name="maxUploadSize">The server's upload limit in bytes; 0 when the server named none (nothing is checked against it).</param>
     /// <returns>The new row; the old choice becomes an alternative.</returns>
     public static ImportRow WithLocalFile(ImportRow row, string path, IReadOnlyList<FileBrowserFolder> rights, long maxUploadSize)
     {
@@ -122,7 +122,7 @@ public static class ImportPlanner
         else if (file.Folder.Length == 0) problem = ImportProblem.NoServerFolder;
         else if (path is null) problem = ImportProblem.NotFound;
         else if (size == 0) problem = ImportProblem.Empty;
-        else if (size > maxUploadSize) problem = ImportProblem.TooLarge;
+        else if (maxUploadSize > 0 && size > maxUploadSize) problem = ImportProblem.TooLarge;
         else if (!rights.Any(rule => rule.AllowsWrite && rule.Covers(file.Folder, file.Name))) problem = ImportProblem.NoRight;
         else problem = ImportProblem.None;
         return new ImportRow(file, path, size, alternatives, problem);

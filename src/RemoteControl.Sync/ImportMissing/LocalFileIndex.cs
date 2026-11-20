@@ -68,9 +68,13 @@ public sealed class LocalFileIndex
     /// <param name="cancellationToken">Cancels the search.</param>
     /// <returns>The index.</returns>
     public static Task<LocalFileIndex> BuildAsync(string root, IReadOnlySet<string>? wanted = null, IProgress<LocalScanProgress>? progress = null, CancellationToken cancellationToken = default) =>
-        Task.Run(() => Build(root, wanted, progress, cancellationToken), cancellationToken);
+        Task.Run(() => Build(root, wanted, progress, cancellationToken, onEntry: null), cancellationToken);
 
-    private static LocalFileIndex Build(string root, IReadOnlySet<string>? wanted, IProgress<LocalScanProgress>? progress, CancellationToken token)
+    /// <summary>The search with a function called for every directory entry before the check for cancellation (tests cancel from it).</summary>
+    internal static Task<LocalFileIndex> BuildWithHookAsync(string root, IReadOnlySet<string>? wanted, CancellationToken cancellationToken, Action onEntry) =>
+        Task.Run(() => Build(root, wanted, null, cancellationToken, onEntry), cancellationToken);
+
+    private static LocalFileIndex Build(string root, IReadOnlySet<string>? wanted, IProgress<LocalScanProgress>? progress, CancellationToken token, Action? onEntry)
     {
         string full = Path.GetFullPath(root);
         var entries = new List<Entry>();
@@ -91,6 +95,8 @@ public sealed class LocalFileIndex
                     folder, static (ref FileSystemEntry entry) => (entry.FileName.ToString(), entry.IsDirectory, (entry.Attributes & FileAttributes.ReparsePoint) != 0), Options);
                 foreach ((string name, bool isDirectory, bool isLink) in found)
                 {
+                    onEntry?.Invoke();
+                    token.ThrowIfCancellationRequested();
                     if (isDirectory)
                     {
                         if (!isLink) pending.Push(Path.Combine(folder, name));
@@ -106,7 +112,6 @@ public sealed class LocalFileIndex
                     }
 
                     entries.Add(new Entry(name, folderIndex));
-                    if ((seen & 0x3FFF) == 0) token.ThrowIfCancellationRequested();
                 }
 
                 read++;
