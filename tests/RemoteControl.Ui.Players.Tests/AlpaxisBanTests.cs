@@ -272,6 +272,7 @@ public sealed class AlpaxisBanWindowTests
         Task<bool> accepted = window.ApplyAsync(0);
         TestUi.FindDialog().Accept();
         Assert.True(await accepted);
-        Assert.Equal(new object?[] { "bob", "local", true, "Mystery", "", "" }, fixture.Fake.LastCall("SetBanAsync")!.Arguments);
+        // A ban without an end names its length, 0: left out, Alpaxis would look for the type's length and ban nothing.
+        Assert.Equal(new object?[] { "bob", "local", true, "Mystery", "0", "" }, fixture.Fake.LastCall("SetBanAsync")!.Arguments);
     }
 }

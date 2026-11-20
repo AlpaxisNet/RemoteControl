@@ -156,9 +156,10 @@ On purpose:
   once per connection: Alpaxis answers ban texts only then, and dropped them without a word before. Other staff see the server's
   "New RC: … (in the client)" line the first time. A player of another server gets the short menu of the Servers tab, and a player
   who left is offered nothing that goes by the player id they had (the server may have given it to someone else).
-- Edit Access sends a new ban, or a reset ban time, with the length of its ban type (the C++ sent none, which Alpaxis takes as a ban
-  without an end) and a ban that is kept with the seconds left now; it asks before a ban without an end when a type's length is not
-  known, and before banning again a ban that ended while the window was open. A ban keeps its own type even when the server's list
+- Edit Access sends a new ban, or a reset ban time, with the length of its ban type (the C++ sent none; Alpaxis then takes the
+  type's own length, and bans nothing when it does not know the type) and a ban that is kept with the seconds left now; it asks
+  before a ban without an end when a type's length is not known and sends that ban with the length 0, which Alpaxis reads as no
+  end, and it asks before banning again a ban that ended while the window was open. A ban keeps its own type even when the server's list
   does not have it. Admin messages appear as alert lines in the RC chat.
 
 - The built-in list server is Alpaxis; the C++ inserted a "Retail" profile for another network by itself. A profile of your own

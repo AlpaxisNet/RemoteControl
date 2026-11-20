@@ -141,9 +141,10 @@ internal sealed partial class BanWindow : RcWindow
             var chosen = scope.Type.SelectedItem as BanType;
             string type = chosen?.Name ?? string.Empty;
             bool reset = scope.ResetTime.IsChecked == true;
-            // A ban that is set carries its length: Alpaxis takes a setban without releasetime as a ban without an end, and counts the
-            // length from the moment it arrives, so a ban that is kept sends the seconds that are left now. A lift keeps what it sent
-            // before (nothing to time).
+            // A ban that is set carries its length: Alpaxis counts it from the moment it arrives, so a ban that is kept sends the
+            // seconds that are left now. Without a releasetime Alpaxis takes the length of the ban's type, and bans nothing when it
+            // does not know the type (until November 2026 it banned without an end), so a ban without an end is sent as 0, which
+            // Alpaxis reads as no end. A lift keeps what it sent before (nothing to time).
             bool ended = false;
             string release = banned ? BanTexts.ReleaseToSend(scope.ReleaseTime, reset, chosen?.Seconds ?? 0, scope.ElapsedSeconds(), out ended) : reset ? string.Empty : scope.ReleaseTime;
             if (banned && ended)
@@ -154,8 +155,9 @@ internal sealed partial class BanWindow : RcWindow
 
             if (banned && release.Length == 0)
             {
-                string question = "The length of the ban type \"" + (type.Length == 0 ? "(none)" : type) + "\" is not known, so the server would ban " + target + " without an end.\n\nBan without an end?";
+                string question = "The length of the ban type \"" + (type.Length == 0 ? "(none)" : type) + "\" is not known.\n\nBan " + target + " without an end?";
                 if (!await Dialogs.ConfirmAsync("Edit Access", question, this, "Ban without an end").ConfigureAwait(true) || IsClosed) return false;
+                release = BanTexts.NoEnd;
             }
 
             sent = await _owner.SendAsync(this, session => session.SetBanAsync(target, world, banned, type, release, reason)).ConfigureAwait(true);

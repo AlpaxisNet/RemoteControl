@@ -43,6 +43,12 @@ internal static class BanTexts
     /// <summary>From this many seconds a ban has no end, as Alpaxis counts it (it sends 315360000 for a ban without an end).</summary>
     public const long UnlimitedSeconds = 100_000_000;
 
+    /// <summary>
+    /// The <c>releasetime</c> of a ban that is set without an end. It is sent, not left out: without a <c>releasetime</c> Alpaxis
+    /// takes the length of the ban's type and bans nothing when it does not know the type.
+    /// </summary>
+    public const string NoEnd = "0";
+
     /// <summary>A release time from this value on (2001 and later) is read as a Unix time rather than seconds left: a guard for other servers.</summary>
     public const long FirstUnixTime = 1_000_000_000;
 
