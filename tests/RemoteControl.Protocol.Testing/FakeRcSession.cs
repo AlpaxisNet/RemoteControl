@@ -72,8 +72,13 @@ public sealed class FakeRcSession : IRcSession
 
     internal void Record(string method, object?[] arguments)
     {
-        lock (_calls) _calls.Add(new RecordedCall(method, arguments));
+        var call = new RecordedCall(method, arguments);
+        lock (_calls) _calls.Add(call);
+        OnCall?.Invoke(call);
     }
+
+    /// <summary>Called with every request after it was recorded (on the caller's thread), to answer it the moment it is made, as a server would.</summary>
+    public Action<RecordedCall>? OnCall { get; set; }
 
     /// <summary>What the sending methods return while the session is open.</summary>
     public bool SendResult { get; set; } = true;

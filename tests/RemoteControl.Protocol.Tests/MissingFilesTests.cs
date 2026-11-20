@@ -195,6 +195,7 @@ public sealed class MissingFilesTests
             Assert.Equal("new.png", Assert.Single(Assert.Single(events).Files).Name);
 
             await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "missingfiles", "part", "1", "2", Row("half.png", "image", "world/images/", "1", "level a.nw"));
+            await BarrierAsync(session, client, "half");
             Assert.True(await session.RequestMissingFilesAsync().Within());
             await FakeGameServer.SendServerTextAsync(client, "GraalEngine", "missingfiles", "part", "2", "2", Row("late.png", "image", "world/images/", "1", "level a.nw"));
             await BarrierAsync(session, client, "b");
