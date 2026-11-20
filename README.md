@@ -12,6 +12,7 @@ Alpaxis list server built in, and any other network one setting away.
 [Your files](#your-files) ·
 [Build and test](#build-and-test) ·
 [Extensions](docs/EXTENSIONS.md) ·
+[MCP](docs/MCP.md) ·
 [For contributors](AGENTS.md)
 
 <img src="docs/images/main-window.png" width="49%" alt="The main window of a server session: the picture header, the RC chat">
@@ -38,8 +39,8 @@ what changed is underneath:
 
 | | |
 | --- | --- |
-| Code | about 58,000 lines of documented C# in 14 libraries, 26,000 lines of tests |
-| Tests | **1,557**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
+| Code | about 62,000 lines of documented C# in 14 libraries, 27,000 lines of tests |
+| Tests | **1,619**, all without a network, a screen or the user's files; two more run on request against a test network of your own |
 | Systems | Windows 10 and 11 (x64), Linux (x64, X11 or XWayland); packages built by GitHub Actions on every tag |
 | Network | the list server, the RC and NC connections and their file transfers in managed code; tried live against an Alpaxis network |
 
@@ -53,7 +54,8 @@ tar -xzf RemoteControl-1.2.0-linux-x64.tar.gz && cd RemoteControl-1.2.0-linux-x6
 ```
 
 The folder holds the program, the few native libraries of the user interface, and `images/`, `sounds/`, `fonts/`,
-`language-specs/` and `control2config.txt` (the default options), all of which you may change. On Linux it needs what every
+`language-specs/`, `gs2-reference/` (the GS2 language reference the MCP tools read) and `control2config.txt` (the default options),
+all of which you may change. On Linux it needs what every
 desktop has: X11 (or XWayland), fontconfig and a font; the tray icon needs a StatusNotifier host (KDE has one, GNOME needs the
 AppIndicator extension that Ubuntu ships).
 
@@ -91,7 +93,7 @@ tray icon (the session stays signed in) and asks before signing out when there i
 | **Import Missing** | Files → Import Missing (also a button in the file browser) asks the server which files its levels, NPCs, weapons, classes and animations name and it does not have, together with the server folder each belongs in, looks for files of those names under a folder of your computer (such as your UGD) in every subfolder, and lists them: the kind of file, where it is used, the server's folder, the local file and why a row is not ticked. Where several local files have the name, the one in a folder named like the kind (`heads`, `images`, ...) is chosen and "Other file..." picks another. After you confirm how many files and how many bytes go to which server, the ticked files are uploaded one after the other, each with the server's answer in its row. It needs a game server that knows the request (the server answers "searching" at once; a server that gives no answer of any kind within 60 seconds is taken not to know it, and the window says so; after "searching" it waits for the result however long the search takes, until you click Cancel or the connection ends), the right to update levels, and a folder right with `w` for each folder it uploads into (a right that ends in a slash, such as `rw world/heads/`, covers every file of that folder; a server that names no upload limit is not checked against one). Only one request runs at a time for a connection. It uploads only what you ticked and confirmed, and only files the server reported missing when it was asked: a file of that name that appeared on the server in the meantime would be replaced. If the server does not answer three uploads in a row, the run is ended and the window says so. It guesses no name that a script builds while it runs (`"head" @ id @ ".png"`): the server leaves those out, so they are not listed. While Import Missing searches or uploads, a server backup and a sync started by hand are refused with a sentence (and Import Missing is refused while one runs): a backup shares Import Missing's view of the file transfer, and a sync shares the one folder the server keeps for the connection. A sync that starts by itself (the option `syncenabled`) uses its own view and changes the folder before every transfer, and Import Missing takes a message of the server only when it names the file and folder it just sent, so such a pass may run beside it. The folder you searched is remembered in the option `importmissingfolder` |
 | **Sync and git backups** | keeps a local folder and the server's files, scripts and configuration in step, one way or both, with exclusions, conflicts that lose nothing, deletions only with permission, and git commits and pushes |
 | **Extensions** | packages in an `extensions` folder that run beside the program and talk to it in JSON lines ([docs/EXTENSIONS.md](docs/EXTENSIONS.md)) |
-| **MCP** | `RemoteControl --mcp` is an MCP server over standard input and output that drives the running program (servers and windows, script editors, chat), with approvals and an audit log; off until you switch it on |
+| **MCP** | `RemoteControl --mcp` is an MCP server over standard input and output through which an agent does what a user does, on every server the program is signed in to: weapons, classes and NPCs read, searched, checked and written; server files edited raw; players, accounts, rights and bans; messages, RC and NC commands; server options, flags and folders; scripts and files copied from one server to another, or exported into a local folder and imported back. Every change can wait for your approval and leaves a backup of what it replaced; the GS2 reference (GScript.GS2Taco) and the script API of api.gscript.dev are built in. Off until you switch it on ([docs/MCP.md](docs/MCP.md)) |
 | **Looks** | thirteen themes, the classic picture header with your own pictures and background (animated WebP and GIF too), colours and fonts in the options |
 
 Command line: `--debug` prints the program's log to standard error, `--packetlog` also prints every packet, `--mcp`
@@ -110,6 +112,7 @@ honoured). The folder keeps the name the C++ version used, so its users find the
 | `logs/` | the chat log (when switched on), the program's log and `crash.log` |
 | `PMs/` | private-message history, one file per account |
 | `Downloads/`, `ExternalEditor/`, `cache/`, `extensions/` | downloaded files, the external editor's workspace, previews and editor data, your extensions |
+| `mcp-audit.log`, `mcp-backups/`, `mcp-files/` | the MCP audit log, the previous version of everything MCP tools overwrote or deleted on a server, and the MCP workspace (local folders for `rc_export` and `rc_import`) |
 
 A file the program cannot read is never overwritten: it is kept, and you are told.
 
@@ -141,13 +144,14 @@ publishes the packages of every `v*` tag as a release ([release.yml](.github/wor
 | [`src/RemoteControl.Ui.*`](src) | one library per group of windows: `Start` (login, server list, list servers), `Session` (main window, options), `Players`, `Scripts`, `Files`, `Extensions` |
 | [`src/RemoteControl.App`](src/RemoteControl.App) | the program: start-up, sessions, the tray icon, the global hotkey, the MCP host |
 | [`tests/`](tests) | one test project per library, the fake servers and the screenless test kit they share |
-| [`assets/runtime`](assets/runtime) | pictures, sounds, fonts, language files and the default options, copied beside the executable |
+| [`assets/runtime`](assets/runtime) | pictures, sounds, fonts, language files, the GS2 reference and the default options, copied beside the executable |
 | [`scripts/`](scripts), [`.github/workflows`](.github/workflows) | packaging, and the builds GitHub runs |
 
 ## Documentation
 
 - [AGENTS.md](AGENTS.md): how the code is laid out and the rules every change keeps, for people and agents alike
 - [docs/EXTENSIONS.md](docs/EXTENSIONS.md): writing, packaging and debugging extensions
+- [docs/MCP.md](docs/MCP.md): the MCP server: switching it on, permissions and approvals, every tool, recipes
 
 ## What is different from the C++ version
 

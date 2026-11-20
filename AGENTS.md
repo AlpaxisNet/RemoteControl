@@ -23,7 +23,7 @@ a C++ file and line.
 | `src/RemoteControl.App/` | the program (`RemoteControl`): start-up, composition, tray, crash handling |
 | `tests/RemoteControl.*.Tests/` | xUnit tests; the window tests run without a screen (Avalonia.Headless) |
 | `tests/RemoteControl.Protocol.Testing/`, `tests/RemoteControl.Ui.TestKit/` | what tests share: fake servers and a recording session; the screenless application and input helpers |
-| `assets/runtime/` | pictures, sounds, fonts, language files and the default options, copied beside the executable |
+| `assets/runtime/` | pictures, sounds, fonts, language files, the GS2 reference (`gs2-reference/`, a copy of GScript.GS2Taco's documentation) and the default options, copied beside the executable |
 
 A library depends only on the ones above it in this table. A group of windows never references another group: it opens a window of
 another group through the tool registry of `Ui.Shell`.
@@ -91,3 +91,14 @@ Expected: 0 warnings, every test passes (two tests that need a real network are 
   `context.OpenTool(ToolIds.X, argument)`. What a group needs from another goes through the interfaces of `Ui.Shell/Services.cs`.
 - The program (`RemoteControl.App`) implements `IAppShell`: sessions, login and server list, reconnect, sign-out, the tray, the
   hotkey, attention, and the MCP host.
+
+## The MCP server
+
+- `Extensions/Mcp/` holds the protocol (`McpRequestProcessor`), the tool list (`McpToolCatalog.cs`: name, permission group, schema) and
+  the server tools (`McpServerTools.*.cs`). A server tool gets an `McpToolContext` and runs on the host's context, like a window: it
+  reads the session there, sends with the session's methods, and waits for the answering event with `RequestAsync` (subscribe, send,
+  wait with a time limit). It returns JSON text or throws `McpToolException` (a tool error the client reads) or `McpDeniedException`.
+- A tool that changes something asks `ApproveAsync` (or `ApproveScriptAsync`) first, and keeps the old version with the
+  `McpBackupStore` before it overwrites or deletes. Listings and transfers go through the session's `McpFileBrowser`, never the windows'.
+- A new tool is one `Tool(...)` entry in `McpToolCatalog.cs` and a method; tests drive it through the bridge against `FakeRcSession`
+  (`McpServerToolsTests`). [docs/MCP.md](docs/MCP.md) lists every tool.
