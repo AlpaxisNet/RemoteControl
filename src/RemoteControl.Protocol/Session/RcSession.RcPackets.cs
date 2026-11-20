@@ -533,8 +533,9 @@ public sealed partial class RcSession
                     Raise(PmGuildsUpdated, new ValueEventArgs<int>(_pmGuilds.Count));
                     break;
                 case "clientrc":
-                    // The answer to OpenClientRcNow: 1, or 0 and the reason (then the ban texts stay unanswered; say why once).
-                    if (parts.Count >= 3 && parts[2] == "0") Refuse("The server does not answer ban requests on this connection: " + (parts.Count > 3 && parts[3].Length > 0 ? parts[3] : "it refused the client RC") + ".");
+                    // The answer to OpenClientRcNow: 1, or 0 and the reason. An Alpaxis server from before 2026-11-19 then leaves the
+                    // ban texts unanswered; a newer one answers them to an RC program in any case. Say once what was refused.
+                    if (parts.Count >= 3 && parts[2] == "0") Refuse("The server refused the client RC" + (parts.Count > 3 && parts[3].Length > 0 ? ": " + parts[3] : string.Empty) + ". An older Alpaxis server answers ban requests only with it.");
                     break;
                 case "pmserverplayers" when parts.Count >= 3:
                     Raise(PmServerPlayersReceived, new PmServerPlayersEventArgs(parts[2], string.Join('\n', parts.Skip(3))));

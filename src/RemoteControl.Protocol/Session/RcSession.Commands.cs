@@ -42,11 +42,13 @@ public sealed partial class RcSession
 
     /// <summary>
     /// Opens the server's "client RC" once per connection: the <c>clientrc</c> request (<c>requesttext("clientrc", 1)</c>) the in-game RC
-    /// sends. Alpaxis answers the texts of the ban window and of the player menu (<c>getban</c>, <c>getbanbyid</c>, <c>setban</c>,
-    /// <c>getbanhistory</c>, <c>getstaffactivity</c>, <c>bantypes</c>) only on a connection that opened it, and drops them without a word
-    /// otherwise, which left Ban History, Staff Activity and Edit Access doing nothing; it checks the same staff list, address and rights
-    /// as the RC login. A server without it ignores the request. Sent right before the first of those texts, so the other staff see the
-    /// server's "New RC: … (in the client)" line only when ban features are used. On the context.
+    /// sends. An Alpaxis game server from before 2026-11-19 answers the texts of the ban window and of the player menu
+    /// (<c>getban</c>, <c>getbanbyid</c>, <c>setban</c>, <c>getbanhistory</c>, <c>getstaffactivity</c>, <c>bantypes</c>) only on a
+    /// connection that opened it, and drops them without a word otherwise, which left Ban History, Staff Activity and Edit Access
+    /// doing nothing; it checks the same staff list, address and rights as the RC login, and tells the other staff "New RC: … (in the
+    /// client)", which is why this is sent right before the first of those texts and not at login. A newer Alpaxis server answers
+    /// the texts to an RC program whose login is complete in any case and announces nothing, so there the request only costs its
+    /// answer; it is kept for the servers that were not updated. A server without the request ignores it. On the context.
     /// </summary>
     /// <returns>Whether it was sent (true when it was sent before).</returns>
     private Task<bool> OpenClientRcNow()

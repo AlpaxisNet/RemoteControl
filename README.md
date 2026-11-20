@@ -152,9 +152,10 @@ publishes the packages of every `v*` tag as a release ([release.yml](.github/wor
 
 On purpose:
 
-- Ban History, Staff Activity, Edit Access and saving a ban first open the server's "client RC" (the request the in-game RC sends),
-  once per connection: Alpaxis answers ban texts only then, and dropped them without a word before. Other staff see the server's
-  "New RC: … (in the client)" line the first time. A player of another server gets the short menu of the Servers tab, and a player
+- Ban History, Staff Activity, Edit Access and saving a ban first send the server's "client RC" request (the one the in-game RC
+  sends), once per connection. An Alpaxis game server from before 2026-11-19 answers ban texts only after it, drops them without a
+  word otherwise, and shows the other staff "New RC: … (in the client)" the first time. A newer one answers this program's ban
+  texts in any case and announces nothing; the request is still sent for the servers that were not updated. A player of another server gets the short menu of the Servers tab, and a player
   who left is offered nothing that goes by the player id they had (the server may have given it to someone else).
 - Edit Access sends a new ban, or a reset ban time, with the length of its ban type (the C++ sent none; Alpaxis then takes the
   type's own length, and bans nothing when it does not know the type) and a ban that is kept with the seconds left now; it asks

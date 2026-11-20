@@ -463,8 +463,9 @@ public interface IRcSession : IDisposable
     /// <param name="banned">Ban or unban.</param>
     /// <param name="banType">The ban type.</param>
     /// <param name="releaseTime">
-    /// <c>releasetime</c>: the ban's length in seconds from now, as Alpaxis reads it (a missing or 0 value is a ban without an end,
-    /// 100000000 or more too), or empty to leave it out.
+    /// <c>releasetime</c>: the ban's length in seconds from now, as Alpaxis reads it (0 is a ban without an end, 100000000 or more
+    /// too), or empty to leave it out: Alpaxis then takes the length of the ban's type, and bans nothing when it does not know the
+    /// type (before 2026-11-19 a missing value was a ban without an end).
     /// </param>
     /// <param name="reason">The reason.</param>
     /// <returns>Whether it was sent.</returns>

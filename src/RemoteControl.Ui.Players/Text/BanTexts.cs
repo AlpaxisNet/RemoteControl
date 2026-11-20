@@ -175,7 +175,7 @@ internal static class BanTexts
 
     /// <summary>
     /// The release time a ban that is set goes out with (<c>setban</c>'s <c>releasetime</c>, which Alpaxis reads as the ban's length in
-    /// seconds from the moment it arrives, and takes a missing one as a ban without an end). For a new ban, or when "Reset ban time" is
+    /// seconds from the moment it arrives; without one it takes the length of the ban's type). For a new ban, or when "Reset ban time" is
     /// checked, the chosen type's length. Otherwise the seconds that are left now (<see cref="Remaining"/>), which keeps the ban's end;
     /// when the ban has ended since it came, the type's length again, and <paramref name="ended"/> says so (the window asks first).
     /// Empty when the type's length is needed and not known.
