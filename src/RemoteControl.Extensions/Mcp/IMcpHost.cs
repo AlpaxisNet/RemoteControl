@@ -1,3 +1,5 @@
+using RemoteControl.Protocol.Session;
+
 namespace RemoteControl.Extensions;
 
 /// <summary>The outcome of an MCP action in the program: success, or the message the MCP client sees.</summary>
@@ -40,6 +42,12 @@ public sealed record McpWindowInfo(string Title, bool Active, IReadOnlyList<stri
 /// <param name="Selection">The selected text, or empty.</param>
 public sealed record McpScriptEditorInfo(string Name, bool Active, bool Modified, string Text, string Selection);
 
+/// <summary>A connected session that server tools act on (<see cref="IMcpHost.FindSessionAsync"/>).</summary>
+/// <param name="ServerName">The server's name as the program shows it (the name MCP clients pass as <c>server</c>).</param>
+/// <param name="Session">The connection in use now; read on the host's context only.</param>
+/// <param name="Journal">The session's recent events (<c>rc_read_events</c>), kept by the host across reconnects.</param>
+public sealed record McpSessionTarget(string ServerName, IRcSession Session, McpSessionJournal Journal);
+
 /// <summary>What an edit function returns to <see cref="IMcpHost.UpdateScriptEditorAsync"/>: the new buffer, or why the buffer stays as it is.</summary>
 /// <param name="NewText">The new buffer, or <c>null</c> when <paramref name="Error"/> is set.</param>
 /// <param name="Error">Why nothing changes, or <c>null</c>.</param>
@@ -64,6 +72,12 @@ public enum McpScriptAction
 
     /// <summary>Press Save/Apply ("Save/Apply the current open script buffer to the server?").</summary>
     SaveApply,
+
+    /// <summary>Write a script straight to the server, without an editor ("Write this script to the server?"); "always allow" applies.</summary>
+    Write,
+
+    /// <summary>Delete a script on the server ("Delete this script on the server?"); asked every time, there is no "always allow".</summary>
+    Delete,
 }
 
 /// <summary>The user's answer to an approval question.</summary>
@@ -160,6 +174,44 @@ public interface IMcpHost
     /// <param name="action">The action.</param>
     /// <returns>Success, or the message.</returns>
     Task<McpActionResult> FocusedWindowActionAsync(string action);
+
+    /// <summary>
+    /// The connected session that server tools act on: the one named <paramref name="server"/> (compared ignoring case), or the selected
+    /// session when <paramref name="server"/> is empty. <c>null</c> when there is no such connected session. The host keeps one
+    /// <see cref="McpSessionJournal"/> per session and attaches it to every connection of the session.
+    /// </summary>
+    /// <param name="server">The server name, or empty for the selected session.</param>
+    /// <returns>The session, or <c>null</c>.</returns>
+    Task<McpSessionTarget?> FindSessionAsync(string server);
+
+    /// <summary>
+    /// Does in a session's main window what typing a line into the chat field and pressing Enter does, the program's own commands
+    /// (<c>/nc connect</c>, <c>/reconnect</c> ...) included; without a main window the line goes to the server as RC chat.
+    /// </summary>
+    /// <param name="target">The session (as <see cref="FindSessionAsync"/> gave it).</param>
+    /// <param name="text">The line.</param>
+    /// <returns>Success, or the message.</returns>
+    Task<McpActionResult> EnterChatLineAsync(McpSessionTarget target, string text);
+
+    /// <summary>Opens the script editor of a weapon, class or database NPC in a session (<c>rc_open_script_editor</c>).</summary>
+    /// <param name="target">The session.</param>
+    /// <param name="kind"><c>weapon</c>, <c>class</c> or <c>npc</c>.</param>
+    /// <param name="name">The weapon or class name, or the NPC's name.</param>
+    /// <param name="npcId">The NPC id, or 0.</param>
+    /// <returns>Success, or the message.</returns>
+    Task<McpActionResult> OpenScriptEditorAsync(McpSessionTarget target, string kind, string name, int npcId);
+
+    /// <summary>
+    /// Claims the next answer of a kind about a key in a session, so that the program's windows do not show it (they would open a dialog
+    /// for every answer): <c>account</c>, <c>rights</c>, <c>attributes</c>, <c>comments</c>, <c>profile</c>, <c>ban</c>,
+    /// <c>banhistory</c>, <c>staffactivity</c> (key: the account, or <c>*</c>), <c>accountlist</c> (key <c>*</c>), <c>localnpcs</c>
+    /// (key: the level). Called on the host's context, before the request is sent.
+    /// </summary>
+    /// <param name="target">The session.</param>
+    /// <param name="kind">The kind of answer.</param>
+    /// <param name="key">What it is about, or <c>*</c>.</param>
+    /// <returns>Dispose it when the answer arrived or the wait ended.</returns>
+    IDisposable ClaimAnswer(McpSessionTarget target, string kind, string key);
 
     /// <summary>Asks the user "Allow this MCP action?" with Deny / Allow once (only called while <c>mcpapprove</c> is on).</summary>
     /// <param name="description">What the client wants, such as "Send RC chat text".</param>

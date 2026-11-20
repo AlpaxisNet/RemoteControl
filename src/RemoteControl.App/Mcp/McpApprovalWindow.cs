@@ -37,7 +37,7 @@ internal sealed class McpApprovalWindow : RcWindow
     {
         Title = title;
         Message = message;
-        Width = 420;
+        Width = 520;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -53,7 +53,8 @@ internal sealed class McpApprovalWindow : RcWindow
         DockPanel.SetDock(buttons, Dock.Bottom);
         var root = new DockPanel { Margin = new Thickness(12) };
         root.Children.Add(buttons);
-        root.Children.Add(text);
+        // The whole text of a change is shown (never cut), so a long one scrolls.
+        root.Children.Add(new ScrollViewer { Content = text, MaxHeight = 440, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
         Content = root;
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
     }
@@ -125,10 +126,14 @@ internal sealed class DialogApprovals(AppServices services) : IMcpApprovals
 
     public async Task<McpApproval> ApproveScriptAsync(McpScriptAction action, string editor, string scriptType)
     {
-        string question = action == McpScriptAction.Edit
-            ? "Edit the open script buffer without saving or applying it?"
-            : "Save/Apply the current open script buffer to the server?";
-        string? always = string.IsNullOrEmpty(scriptType) ? null : "Always allow " + scriptType + " scripts";
+        string question = action switch
+        {
+            McpScriptAction.Edit => "Edit the open script buffer without saving or applying it?",
+            McpScriptAction.SaveApply => "Save/Apply the current open script buffer to the server?",
+            McpScriptAction.Write => "Write this script to the server (the old one is backed up)?",
+            _ => "Delete this script on the server (it is backed up first)?",
+        };
+        string? always = string.IsNullOrEmpty(scriptType) || action == McpScriptAction.Delete ? null : "Always allow " + scriptType + " scripts";
         McpApproval answer = await McpApprovalWindow.AskAsync(services, "RC MCP Script Approval", question + "\n\n" + editor, always).ConfigureAwait(true);
         return always is null && answer == McpApproval.AlwaysAllow ? McpApproval.AllowOnce : answer;
     }

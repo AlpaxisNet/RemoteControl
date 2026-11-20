@@ -103,7 +103,7 @@ public sealed class OptionsTests
         Assert.Contains("\nafktimeout=15\n", text);
         Assert.Contains("\nwebbrowsers=firefox,mozilla,konqueror,netscape\n", text);
         Assert.Contains("\niconhelppressed=rc_help_pressed.png\n", text);
-        Assert.EndsWith("mcpfileroots=.\nmcpserverscope=\nimportmissingfolder=\n", text);
+        Assert.EndsWith("mcpfileroots=.\nmcpserverscope=\nmcpreferencefolders=\nimportmissingfolder=\n", text);
         Assert.Equal(RcOptions.Keys.Count, text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length);
     }
 

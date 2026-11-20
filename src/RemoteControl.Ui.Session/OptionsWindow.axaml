@@ -259,12 +259,15 @@
                 <Button Name="ResetApprovals" Content="Reset saved script approvals" Margin="0,4,0,0" />
               </StackPanel>
             </Border>
-            <Grid Classes="form" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+            <Grid Classes="form" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
               <TextBlock Classes="label" Text="Allowed file roots:" />
               <TextBox Grid.Column="1" Name="mcpfileroots" />
               <TextBlock Classes="label" Grid.Row="1" Text="Allowed server scope:" />
               <TextBox Grid.Row="1" Grid.Column="1" Name="mcpserverscope" />
+              <TextBlock Classes="label" Grid.Row="2" Text="More GS2 reference folders:" />
+              <TextBox Grid.Row="2" Grid.Column="1" Name="mcpreferencefolders" />
             </Grid>
+            <TextBlock Name="McpFolders" Classes="label" TextWrapping="Wrap" />
             <TextBlock Classes="label" Text="Stdio client launch command:" />
             <TextBox Name="McpLaunch" IsReadOnly="True" />
             <TextBlock Classes="label" TextWrapping="Wrap" Text="Stdio is local process-to-process communication; RC does not open a TCP listener." />

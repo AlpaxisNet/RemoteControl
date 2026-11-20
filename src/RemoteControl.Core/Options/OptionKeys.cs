@@ -282,6 +282,9 @@ public static class OptionKeys
     /// <summary>The key of <see cref="RcOptions.McpServerScope"/>.</summary>
     public const string McpServerScope = "mcpserverscope";
 
+    /// <summary>The key of <see cref="RcOptions.McpReferenceFolders"/>.</summary>
+    public const string McpReferenceFolders = "mcpreferencefolders";
+
     /// <summary>The key of <see cref="RcOptions.ImportMissingFolder"/>.</summary>
     public const string ImportMissingFolder = "importmissingfolder";
 

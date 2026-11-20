@@ -27,6 +27,27 @@ public sealed record McpBridgeOptions
     /// <summary>The process id the bridge listens and answers under (the current process by default; tests use others).</summary>
     public int ProcessId { get; init; } = Environment.ProcessId;
 
+    /// <summary>
+    /// Where the server tools keep the previous version of what they overwrite or delete (<see cref="AppPaths.McpBackupDirectory"/>);
+    /// <c>mcp-backups</c> beside the audit log when not set.
+    /// </summary>
+    public string? BackupDirectory { get; init; }
+
+    /// <summary>
+    /// The MCP workspace folder (<see cref="AppPaths.McpWorkspaceDirectory"/>): relative entries of <c>mcpfileroots</c> are taken inside it;
+    /// <c>mcp-files</c> beside the audit log when not set.
+    /// </summary>
+    public string? WorkspaceDirectory { get; init; }
+
+    /// <summary>The GS2 reference beside the program (<see cref="AppPaths.Gs2ReferenceDirectory"/>); <c>gs2-reference</c> beside the executable when not set.</summary>
+    public string? ReferenceDirectory { get; init; }
+
+    /// <summary>The cache file of the script API (the editors' <c>scriptapi.json</c>); <c>cache/editors/scriptapi.json</c> beside the audit log when not set.</summary>
+    public string? ScriptApiCacheFile { get; init; }
+
+    /// <summary>The HTTP handler the script API is downloaded with (tests); a shared one with certificate checks when not set.</summary>
+    public HttpMessageHandler? ScriptApiHandler { get; init; }
+
     /// <summary>Where problems are logged; <see cref="AppLog.Default"/> when not set.</summary>
     public AppLog? Log { get; init; }
 }
@@ -67,7 +88,11 @@ public sealed class McpBridge : IAsyncDisposable, IDisposable
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
         _log = options.Log ?? AppLog.Default;
-        _processor = new McpRequestProcessor(new Invoker(this), () => options.Options.Current, SaveScriptTypeApproval, options.ProcessId);
+        string data = Path.GetDirectoryName(Path.GetFullPath(options.AuditLogFile)) ?? Path.GetTempPath();
+        var services = new McpToolServices(new McpBackupStore(options.BackupDirectory ?? Path.Combine(data, "mcp-backups"), _log), options.WorkspaceDirectory ?? Path.Combine(data, "mcp-files"),
+            SaveScriptTypeApproval, options.ProcessId, _log, options.ReferenceDirectory,
+            new McpScriptApi(options.ScriptApiCacheFile ?? Path.Combine(data, "cache", "editors", "scriptapi.json"), options.ScriptApiHandler));
+        _processor = new McpRequestProcessor(new Invoker(this), () => options.Options.Current, SaveScriptTypeApproval, options.ProcessId, services: services);
     }
 
     /// <summary>Where the bridge listens: the socket path, or the pipe name on Windows.</summary>
@@ -320,6 +345,8 @@ public sealed class McpBridge : IAsyncDisposable, IDisposable
         private readonly McpBridge _bridge;
 
         public Invoker(McpBridge bridge) => _bridge = bridge;
+
+        public CancellationToken Stopping => _bridge._stop.Token;
 
         public Task<T> InvokeAsync<T>(Func<IMcpHost, Task<T>> call)
         {

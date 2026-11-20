@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\RemoteControl.Extensions\RemoteControl.Extensions.csproj" />
+    <ProjectReference Include="..\RemoteControl.Protocol.Testing\RemoteControl.Protocol.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

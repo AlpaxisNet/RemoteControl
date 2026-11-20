@@ -318,6 +318,13 @@ public sealed partial record RcOptions
     public string McpServerScope { get => _mcpServerScope; init => _mcpServerScope = value ?? string.Empty; }
     private readonly string _mcpServerScope = "";
 
+    /// <summary>
+    /// More folders of GS2 documentation and example scripts the MCP reference tools search beside the bundled reference (such as a full
+    /// GScript.GS2Taco checkout), separated by <c>;</c>. Key <c>mcpreferencefolders</c>.
+    /// </summary>
+    public string McpReferenceFolders { get => _mcpReferenceFolders; init => _mcpReferenceFolders = value ?? string.Empty; }
+    private readonly string _mcpReferenceFolders = "";
+
     /// <summary>The folder on this computer the Import Missing window last searched; empty until one was chosen. Key <c>importmissingfolder</c>.</summary>
     public string ImportMissingFolder { get => _importMissingFolder; init => _importMissingFolder = value ?? string.Empty; }
     private readonly string _importMissingFolder = "";
@@ -434,6 +441,7 @@ public sealed partial record RcOptions
         fields.Add(OptionField.Flag("mcpapprovenpc", o => o.McpApproveNpc, (o, v) => o with { McpApproveNpc = v }));
         fields.Add(OptionField.Text("mcpfileroots", o => o.McpFileRoots, (o, v) => o with { McpFileRoots = v }));
         fields.Add(OptionField.Text("mcpserverscope", o => o.McpServerScope, (o, v) => o with { McpServerScope = v }));
+        fields.Add(OptionField.Text("mcpreferencefolders", o => o.McpReferenceFolders, (o, v) => o with { McpReferenceFolders = v }));
         fields.Add(OptionField.Text("importmissingfolder", o => o.ImportMissingFolder, (o, v) => o with { ImportMissingFolder = v }));
         return fields.ToImmutable();
     }

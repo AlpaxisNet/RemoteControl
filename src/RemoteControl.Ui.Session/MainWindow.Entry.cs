@@ -315,7 +315,8 @@ internal sealed partial class MainWindow
     /// </summary>
     /// <param name="message">The trimmed line.</param>
     /// <returns>Whether it was handled (the entry is then cleared); false when not connected.</returns>
-    internal bool Execute(string message)
+    /// <param name="toServer">Send to the server even when a channel tab is selected (lines that do not come from the chat field).</param>
+    internal bool Execute(string message, bool toServer = false)
     {
         if (message.Length == 0) return false;
         if (_history.Count == 0 || _history[0] != message) _history.Insert(0, message);
@@ -377,7 +378,7 @@ internal sealed partial class MainWindow
         }
         if (options.SeparateFindResults && (message == "/find" || message.StartsWith("/find ", StringComparison.Ordinal) || message == "/finddef" || message.StartsWith("/finddef ", StringComparison.Ordinal)))
             BeginFindResults();
-        if (CurrentTab is { Kind: ChatTabKind.Channel } channel)
+        if (!toServer && CurrentTab is { Kind: ChatTabKind.Channel } channel)
         {
             ChatTab target = channel;
             UiSafe.Fire(async () =>

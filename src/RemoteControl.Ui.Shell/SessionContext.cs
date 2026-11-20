@@ -84,6 +84,9 @@ public sealed class SessionContext
     /// <summary>What the groups of windows offer each other for this session.</summary>
     public SessionServices Services { get; } = new();
 
+    /// <summary>The answers the MCP server's tools asked for, which the windows do not show (kept across reconnects).</summary>
+    public ClaimedAnswers ClaimedAnswers { get; } = new();
+
     /// <summary>Whether the session has ended (sign-out or program exit): nothing may be opened for it any more.</summary>
     public bool IsEnded => _ended;
 
@@ -130,6 +133,7 @@ public sealed class SessionContext
         if (_ended) return;
         Session = session;
         Login = login;
+        ClaimedAnswers.Clear();
         foreach (Attachment attachment in _attachments.ToArray()) attachment.Bind(session);
         UiSafe.Run(() => SessionReplaced?.Invoke(this, EventArgs.Empty), "session replaced");
     }

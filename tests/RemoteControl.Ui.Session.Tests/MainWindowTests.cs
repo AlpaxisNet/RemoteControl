@@ -475,6 +475,18 @@ public sealed class MainWindowTests
     }
 
     [AvaloniaFact]
+    public void A_local_npc_dump_the_mcp_claimed_opens_no_window()
+    {
+        using TestSession test = NewSession();
+        ShowMain(test);
+        using (test.Context.ClaimedAnswers.Claim("localnpcs", "ONLINESTARTLOCAL.NW"))
+        {
+            test.Fake.RaiseLocalNpcs("onlinestartlocal.nw", "[npc1]\nx = 30");
+            Assert.Empty(RcWindow.OpenWindows.OfType<LocalNpcsResultWindow>());
+        }
+    }
+
+    [AvaloniaFact]
     public void Find_results_go_to_their_tab_and_link_to_the_folder()
     {
         using TestSession test = NewSession();

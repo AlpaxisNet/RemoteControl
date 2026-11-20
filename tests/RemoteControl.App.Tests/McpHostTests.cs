@@ -3,6 +3,7 @@ using Avalonia.Headless.XUnit;
 using RemoteControl.App.Mcp;
 using RemoteControl.Extensions;
 using RemoteControl.Protocol.Session;
+using RemoteControl.Protocol.Testing;
 using RemoteControl.Ui.Shell;
 using RemoteControl.Ui.TestKit;
 
@@ -172,6 +173,77 @@ public sealed class McpHostTests
 
         rig.Harness.Made[0].IsConnected = false;
         Assert.Equal("RC is not connected", (await rig.Host.SendChatAsync("hello")).Error);
+    }
+
+    [AvaloniaFact]
+    public async Task Server_tools_find_sessions_whose_journal_outlives_a_reconnect()
+    {
+        using var rig = new Rig();
+        Assert.Null(await rig.Host.FindSessionAsync(string.Empty));
+        SessionContext alpha = await rig.Harness.ConnectedAsync("Alpha");
+        SessionContext beta = await rig.Harness.ConnectedAsync("Beta");
+        rig.Harness.Shell.ActiveSession = alpha;
+
+        McpSessionTarget selected = (await rig.Host.FindSessionAsync(string.Empty))!;
+        Assert.Equal("Alpha", selected.ServerName);
+        Assert.Same(beta.Session, (await rig.Host.FindSessionAsync("BETA"))!.Session);
+        Assert.Null(await rig.Host.FindSessionAsync("Gamma"));
+
+        rig.Harness.Made[0].RaiseRcChat("before");
+        IDisposable pending = rig.Host.ClaimAnswer(selected, "rights", "bob");
+        Assert.True((await rig.Harness.Shell.ReconnectAsync(alpha)).Success);
+        // A claim was made for a request on the old connection, whose answer will not come: it must not take the user's next one.
+        Assert.Equal(0, alpha.ClaimedAnswers.Count);
+        pending.Dispose();
+        FakeRcSession second = rig.Harness.Made[^1];
+        Assert.NotSame(rig.Harness.Made[0], second);
+        second.RaiseRcChat("after");
+        McpSessionTarget again = (await rig.Host.FindSessionAsync("alpha"))!;
+        Assert.Same(selected.Journal, again.Journal);
+        Assert.Same(second, again.Session);
+        Assert.Equal(new[] { "before", "after" }, again.Journal.Read(0, new[] { McpSessionJournal.Rc }).Select(entry => entry.Text));
+
+        McpSessionTarget betaTarget = (await rig.Host.FindSessionAsync("Beta"))!;
+        Assert.True((await rig.Host.EnterChatLineAsync(betaTarget, "/find bob")).Success);
+        Assert.Contains(rig.Harness.Made[1].Calls, call => call.Method == nameof(IRcSession.SendRcChatAsync) && (string?)call.Arguments[0] == "/find bob");
+        var stranger = new McpSessionTarget("Gamma", rig.Harness.Made[1], new McpSessionJournal());
+        Assert.Equal("Connected RC server session not found", (await rig.Host.EnterChatLineAsync(stranger, "x")).Error);
+
+        // A claimed answer is not shown by the windows; the claim is gone once taken or let go.
+        using (rig.Host.ClaimAnswer(betaTarget, "rights", "bob"))
+        {
+            Assert.Equal(1, beta.ClaimedAnswers.Count);
+            Assert.True(beta.ClaimedAnswers.TryTake("rights", "BOB"));
+            Assert.False(beta.ClaimedAnswers.TryTake("rights", "bob"));
+        }
+        IDisposable any = rig.Host.ClaimAnswer(betaTarget, "accountlist", ClaimedAnswers.Any);
+        any.Dispose();
+        Assert.Equal(0, beta.ClaimedAnswers.Count);
+
+        ScriptRequest? requested = null;
+        rig.Harness.Tools.Register(ToolIds.ScriptEditor, (context, argument) =>
+        {
+            requested = argument as ScriptRequest;
+            return context.Windows.Find(ToolIds.MainWindow);
+        });
+        Assert.True((await rig.Host.OpenScriptEditorAsync(again, "npc", "door", 7)).Success);
+        Assert.Equal(new ScriptRequest(RemoteControl.Ui.Shell.ScriptKind.Npc, "door", 7), requested);
+        Assert.False((await rig.Host.OpenScriptEditorAsync(again, "level", "x", 0)).Success);
+    }
+
+    [AvaloniaFact]
+    public async Task A_window_that_switches_server_starts_its_journal_again()
+    {
+        using var rig = new Rig();
+        SessionContext session = await rig.Harness.ConnectedAsync("Alpha");
+        McpSessionJournal journal = (await rig.Host.FindSessionAsync("Alpha"))!.Journal;
+        rig.Harness.Made[0].RaisePrivateMessage(3, "friend", "Friend", "secret of Alpha");
+        Assert.True((await rig.Harness.ConnectAsync("Beta", session)).Success);
+        McpSessionTarget beta = (await rig.Host.FindSessionAsync("Beta"))!;
+        Assert.Same(journal, beta.Journal);
+        McpJournalEntry only = Assert.Single(beta.Journal.Read(0));
+        Assert.Equal(McpSessionJournal.Connection, only.Kind);
+        Assert.Contains("from Alpha to Beta", only.Text);
     }
 
     [AvaloniaFact]

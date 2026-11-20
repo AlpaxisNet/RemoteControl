@@ -170,7 +170,7 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
 
     private void OnLocalNpcs(LocalNpcsEventArgs e)
     {
-        if (string.IsNullOrEmpty(e.Text)) return;
+        if (string.IsNullOrEmpty(e.Text) || _context.ClaimedAnswers.TryTake("localnpcs", e.Level)) return;
         var window = new LocalNpcsResultWindow(_context, e.Level, e.Text);
         _context.Windows.Track(window);
         window.Show();
@@ -385,7 +385,7 @@ internal sealed partial class MainWindow : RcWindow, ISessionChat, IMainWindowIn
     public bool Send(string text)
     {
         if (IsClosed || string.IsNullOrWhiteSpace(text)) return false;
-        return Execute(text.Trim());
+        return Execute(text.Trim(), toServer: true);
     }
 
     /// <inheritdoc />

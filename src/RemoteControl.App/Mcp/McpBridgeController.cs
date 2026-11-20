@@ -30,6 +30,10 @@ internal sealed class McpBridgeController : IDisposable
             Options = services.Options,
             Post = action => UiDispatch.Post(action, "MCP request"),
             AuditLogFile = services.Paths.McpAuditLogFile,
+            BackupDirectory = services.Paths.McpBackupDirectory,
+            WorkspaceDirectory = services.Paths.McpWorkspaceDirectory,
+            ReferenceDirectory = services.Paths.Gs2ReferenceDirectory,
+            ScriptApiCacheFile = Path.Combine(services.Paths.EditorCacheDirectory, "scriptapi.json"),
             Transport = transport ?? new McpTransportOptions(),
             Log = services.Log,
         };

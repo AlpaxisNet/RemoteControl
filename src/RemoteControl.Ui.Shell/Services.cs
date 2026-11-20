@@ -21,7 +21,10 @@ public interface ISessionChat
     /// <param name="tab">The tab's name.</param>
     void RemoveTab(string tab);
 
-    /// <summary>Does what typing a line into the chat field and pressing Enter does, the program's own commands included.</summary>
+    /// <summary>
+    /// Does what typing a line into the chat field and pressing Enter does, the program's own commands included; the line goes to the
+    /// server even when an IRC channel tab is selected.
+    /// </summary>
     /// <param name="text">The line.</param>
     /// <returns>Whether it was handled or sent.</returns>
     bool Send(string text);

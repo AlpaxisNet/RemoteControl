@@ -43,6 +43,9 @@ internal sealed partial class OptionsWindow : RcWindow
         HideOnClose = true;
         Title = string.IsNullOrEmpty(context.ServerName) ? "Options" : "Options - " + context.ServerName;
         McpLaunch.Text = OperatingSystem.IsWindows() ? "RemoteControl.exe --mcp" : "RemoteControl --mcp";
+        McpFolders.Text = "File roots are the local folders MCP tools may read and write (rc_export, rc_import), separated by ;. A relative one, such as ., is inside the MCP workspace "
+            + context.App.Paths.McpWorkspaceDirectory + ". What MCP tools overwrite or delete on a server is kept in " + context.App.Paths.McpBackupDirectory + ". "
+            + "The GS2 reference tools read the reference beside the program (" + context.App.Paths.Gs2ReferenceDirectory + ") and the folders given above (separated by ;), such as a GS2Taco checkout.";
         FillChoices();
         foreach (ILogical logical in this.GetLogicalDescendants())
             if (logical is Control { Name: { Length: > 0 } name } control && RcOptions.IsKnownKey(name)) Wire(name, control);

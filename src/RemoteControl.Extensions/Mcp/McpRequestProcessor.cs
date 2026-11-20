@@ -8,6 +8,9 @@ internal interface IMcpHostInvoker
 {
     /// <summary>Runs <paramref name="call"/> on the host's context and returns its result.</summary>
     Task<T> InvokeAsync<T>(Func<IMcpHost, Task<T>> call);
+
+    /// <summary>Cancelled when the bridge stops: server tools end their waits.</summary>
+    CancellationToken Stopping { get; }
 }
 
 /// <summary>What one request line produced: the response line (or none) and the audit line (or none).</summary>
@@ -21,7 +24,8 @@ internal sealed record McpOutcome(string? Response, string? AuditLine);
 /// </summary>
 /// <remarks>
 /// <para>Methods: <c>rc/instance</c> (the probe of the <c>--mcp</c> process), <c>initialize</c>, <c>notifications/initialized</c>,
-/// <c>ping</c> (added: an empty result, which MCP clients expect), <c>tools/list</c>, <c>tools/call</c>; anything else is -32601.</para>
+/// <c>ping</c> (added: an empty result, which MCP clients expect), <c>tools/list</c>, <c>tools/call</c>, and (added) <c>resources/list</c>,
+/// <c>resources/read</c> and <c>resources/templates/list</c> for the bundled GS2 reference; anything else is -32601.</para>
 /// <para>Error codes: -32700 parse error and -32600 invalid request (added: the C++ guessed fields in any text), -32601 method not
 /// found, -32001 MCP disabled, -32002 mutation denied by the user, -32003 outside the server scope, -32602 invalid arguments or a
 /// tool that is unknown or not allowed, -32603 an internal error of the program.</para>
@@ -44,6 +48,7 @@ internal sealed class McpRequestProcessor
     private readonly Action<string> _saveScriptTypeApproval;
     private readonly int _processId;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly McpToolServices _services;
 
     /// <summary>Creates a processor.</summary>
     /// <param name="host">Runs host calls on the host's context.</param>
@@ -51,13 +56,16 @@ internal sealed class McpRequestProcessor
     /// <param name="saveScriptTypeApproval">Saves "always allow" for a script type (<c>Weapon</c>, <c>Class</c>, <c>NPC</c>).</param>
     /// <param name="processId">The process id reported to clients.</param>
     /// <param name="clock">The clock of the audit log.</param>
-    public McpRequestProcessor(IMcpHostInvoker host, Func<RcOptions> options, Action<string> saveScriptTypeApproval, int processId, Func<DateTimeOffset>? clock = null)
+    /// <param name="services">What the server tools share (backups, the local folders); by default in a temporary folder.</param>
+    public McpRequestProcessor(IMcpHostInvoker host, Func<RcOptions> options, Action<string> saveScriptTypeApproval, int processId, Func<DateTimeOffset>? clock = null, McpToolServices? services = null)
     {
         _host = host;
         _options = options;
         _saveScriptTypeApproval = saveScriptTypeApproval;
         _processId = processId;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
+        string temporary = Path.Combine(Path.GetTempPath(), "rc-mcp-" + processId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        _services = services ?? new McpToolServices(new McpBackupStore(Path.Combine(temporary, "backups"), AppLog.Default), Path.Combine(temporary, "files"), saveScriptTypeApproval, processId, AppLog.Default);
     }
 
     /// <summary>Whether the bridge answers <paramref name="line"/>: every non-blank line except a JSON object without <c>id</c> (a notification).</summary>
@@ -69,9 +77,11 @@ internal sealed class McpRequestProcessor
         try
         {
             using JsonDocument document = JsonDocument.Parse(line);
+            // A request that is no valid text (a lone surrogate) is answered with a parse error, so it expects a response.
+            if (!McpArguments.IsWellFormed(document.RootElement)) return true;
             return document.RootElement.ValueKind != JsonValueKind.Object || document.RootElement.TryGetProperty("id", out _);
         }
-        catch (JsonException)
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException)
         {
             return true;
         }
@@ -92,6 +102,13 @@ internal sealed class McpRequestProcessor
         {
             return new McpOutcome(Error(null, -32700, "Parse error"), null);
         }
+        // JSON lets a string or a property name hold an escaped lone surrogate, which no .NET string can: such a request is refused
+        // whole, here, so that nothing later (the id, the method, a tool's arguments) can throw on it.
+        if (!McpArguments.IsWellFormed(document.RootElement))
+        {
+            document.Dispose();
+            return new McpOutcome(Error(null, -32700, "Parse error: the request has text that is not valid UTF-16 (a lone surrogate)"), null);
+        }
         using (document)
         {
             JsonElement root = document.RootElement;
@@ -103,9 +120,9 @@ internal sealed class McpRequestProcessor
                 if (idElement.ValueKind is not (JsonValueKind.String or JsonValueKind.Number or JsonValueKind.Null)) return new McpOutcome(Error(null, -32600, "Invalid Request"), null);
                 id = idElement.GetRawText();
             }
-            string method = root.TryGetProperty("method", out JsonElement methodElement) && methodElement.ValueKind == JsonValueKind.String ? methodElement.GetString() ?? string.Empty : string.Empty;
+            string method = root.TryGetProperty("method", out JsonElement methodElement) && methodElement.ValueKind == JsonValueKind.String ? McpArguments.Text(methodElement) ?? string.Empty : string.Empty;
             JsonElement parameters = root.TryGetProperty("params", out JsonElement value) && value.ValueKind == JsonValueKind.Object ? value : default;
-            var arguments = new Arguments(parameters);
+            var arguments = new McpArguments(parameters);
             string tool = method == "tools/call" ? arguments.Name : string.Empty;
             RcOptions options = _options();
             var context = new RequestContext(id, method, tool, options);
@@ -136,7 +153,7 @@ internal sealed class McpRequestProcessor
         }
     }
 
-    private async Task<string> DispatchAsync(RequestContext context, Arguments arguments)
+    private async Task<string> DispatchAsync(RequestContext context, McpArguments arguments)
     {
         string? id = context.Id;
         switch (context.Method)
@@ -145,7 +162,7 @@ internal sealed class McpRequestProcessor
                 return Response(id, await InstanceTextAsync().ConfigureAwait(false));
             case "initialize":
                 context.Audit("ok");
-                return Response(id, "{\"protocolVersion\":\"" + ProtocolVersion + "\",\"capabilities\":{\"tools\":{\"listChanged\":false}},\"serverInfo\":{\"name\":\"rc\",\"version\":\"3\"}}");
+                return Response(id, "{\"protocolVersion\":\"" + ProtocolVersion + "\",\"capabilities\":{\"tools\":{\"listChanged\":false},\"resources\":{\"listChanged\":false}},\"serverInfo\":{\"name\":\"rc\",\"version\":\"3\"}}");
             case "ping":
                 return Response(id, "{}");
             case "tools/list":
@@ -153,13 +170,15 @@ internal sealed class McpRequestProcessor
                 return Response(id, "{\"tools\":" + McpTools.ListJson(context.Options) + "}");
             case "tools/call":
                 return await CallToolAsync(context, arguments.ToolArguments).ConfigureAwait(false);
+            case "resources/list" or "resources/read" or "resources/templates/list":
+                return await ResourcesAsync(context, arguments).ConfigureAwait(false);
             default:
                 context.Audit("method-not-found");
                 return Error(id, -32601, "Method not found");
         }
     }
 
-    private async Task<string> CallToolAsync(RequestContext context, Arguments arguments)
+    private async Task<string> CallToolAsync(RequestContext context, McpArguments arguments)
     {
         string? id = context.Id;
         string tool = context.Tool;
@@ -171,6 +190,15 @@ internal sealed class McpRequestProcessor
         bool canLogin = full || options.McpLogin;
         bool canWindows = full || options.McpWindows;
         bool canAdmin = full || options.McpAdmin;
+        if (McpTools.TryGet(tool, out McpToolDefinition? definition) && definition.Run is not null)
+        {
+            if (!McpTools.Allowed(definition.Group, options))
+            {
+                context.Audit("scope-disabled");
+                return Error(id, -32602, "Tool unavailable or disabled by MCP scope");
+            }
+            return await RunServerToolAsync(context, definition, arguments).ConfigureAwait(false);
+        }
         if (!ConnectionTools.Contains(tool) && options.McpServerScope.Length > 0)
         {
             McpServerState server = await _host.InvokeAsync(host => host.GetServerStateAsync()).ConfigureAwait(false);
@@ -193,6 +221,13 @@ internal sealed class McpRequestProcessor
                     writer.WriteBoolean("serverConnected", server.Connected);
                     writer.WriteString("server", JsonText.Clean(server.Name));
                     writer.WriteString("serverScope", JsonText.Clean(options.McpServerScope));
+                    McpLocalFiles local = _services.LocalFiles(options);
+                    writer.WriteString("workspace", JsonText.Clean(local.Workspace));
+                    writer.WriteStartArray("localRoots");
+                    foreach (string root in local.Roots) writer.WriteStringValue(JsonText.Clean(root));
+                    writer.WriteEndArray();
+                    writer.WriteString("backups", JsonText.Clean(_services.Backups.Root));
+                    writer.WriteBoolean("approvals", options.McpApprove);
                     writer.WriteEndObject();
                 });
                 return Ok(context, text);
@@ -307,6 +342,124 @@ internal sealed class McpRequestProcessor
                 context.Audit("scope-disabled");
                 return Error(id, -32602, "Tool unavailable or disabled by MCP scope");
         }
+    }
+
+    /// <summary>
+    /// Runs a server tool on the host's context: finds its session (the <c>server</c> argument, or the selected session), checks the
+    /// server scope against it, then runs it. A <see cref="McpToolException"/> is a tool error the client reads; a denied approval is the
+    /// JSON-RPC error -32002; a session outside the scope is -32003.
+    /// </summary>
+    private async Task<string> RunServerToolAsync(RequestContext context, McpToolDefinition definition, McpArguments arguments)
+    {
+        RcOptions options = context.Options;
+        string server = arguments.String("server");
+        CancellationToken token = _host.Stopping;
+        try
+        {
+            string text = await _host.InvokeAsync(async host =>
+            {
+                McpSessionTarget? target = definition.Session == McpSessionUse.None ? null : await host.FindSessionAsync(server).ConfigureAwait(true);
+                if (definition.Session == McpSessionUse.Required && target is null)
+                    throw new McpToolException(server.Length == 0 ? "No connected RC server session: connect one (rc_connect_server) or name it in server." : "Connected RC server session not found: " + server + " (rc_list_connections lists them).");
+                // A tool that needs its session is refused at once outside the scope; one that may work without it is refused when it uses it.
+                if (definition.Session == McpSessionUse.Required && target is not null && options.McpServerScope.Length > 0 && !string.Equals(target.ServerName, options.McpServerScope, StringComparison.OrdinalIgnoreCase))
+                    throw new McpScopeException();
+                var call = new McpToolContext(host, arguments, options, target, _services, token, TimeSpan.FromSeconds(definition.TimeoutSeconds));
+                return await definition.Run!(call).ConfigureAwait(true);
+            }).ConfigureAwait(false);
+            context.Audit("ok");
+            return Response(context.Id, ToolResult(text, false));
+        }
+        catch (McpToolException exception)
+        {
+            context.Audit("failed");
+            return Response(context.Id, ToolResult(exception.Message, true));
+        }
+        catch (McpDeniedException)
+        {
+            return Denied(context);
+        }
+        catch (McpScopeException)
+        {
+            context.Audit("server-scope-denied");
+            return Error(context.Id, -32003, "Current server is outside configured MCP server scope");
+        }
+    }
+
+    /// <summary>The prefix of the resources: the documents of the bundled GS2 reference.</summary>
+    internal const string ResourcePrefix = "gs2ref://reference/";
+
+    /// <summary>
+    /// <c>resources/list</c>, <c>resources/read</c> and <c>resources/templates/list</c>: the documents of the GS2 reference beside the program
+    /// (the verified guide first, with the highest priority), for clients that attach documents. Needs the read permission.
+    /// </summary>
+    private async Task<string> ResourcesAsync(RequestContext context, McpArguments arguments)
+    {
+        if (!McpTools.Allowed(McpToolGroup.Read, context.Options))
+        {
+            context.Audit("scope-disabled");
+            return Error(context.Id, -32602, "Resources unavailable or disabled by MCP scope");
+        }
+        if (context.Method == "resources/templates/list")
+        {
+            context.Audit("ok");
+            return Response(context.Id, "{\"resourceTemplates\":[]}");
+        }
+        McpReference reference = _services.Reference(context.Options);
+        IReadOnlyList<McpReferenceDocument> documents = await Task.Run(() => reference.Documents().Where(document => document.Bundled).ToArray()).ConfigureAwait(false);
+        if (context.Method == "resources/list")
+        {
+            context.Audit("ok");
+            return Response(context.Id, JsonText.Write(writer =>
+            {
+                writer.WriteStartObject();
+                writer.WriteStartArray("resources");
+                foreach (McpReferenceDocument document in documents)
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("uri", JsonText.Clean(ResourcePrefix + document.Id));
+                    writer.WriteString("name", JsonText.Clean(document.Id));
+                    writer.WriteString("description", JsonText.Clean((document.Verified ? "Verified by people. " : string.Empty) + (document.Description.Length > 0 ? document.Description : "GS2 reference document.")));
+                    writer.WriteString("mimeType", MimeType(document.Id));
+                    writer.WriteNumber("size", document.Size);
+                    writer.WriteStartObject("annotations");
+                    writer.WriteNumber("priority", document.Verified ? 1.0 : document.Rank <= 2 ? 0.8 : 0.4);
+                    writer.WriteEndObject();
+                    writer.WriteEndObject();
+                }
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }));
+        }
+        string uri = arguments.String("uri");
+        McpReferenceDocument? found = uri.StartsWith(ResourcePrefix, StringComparison.Ordinal) ? McpReference.Find(documents, uri[ResourcePrefix.Length..]) : null;
+        string? text = found is null ? null : McpReference.Read(found);
+        if (found is null || text is null)
+        {
+            context.Audit("failed");
+            return Error(context.Id, -32602, "Resource not found: " + uri);
+        }
+        context.Audit("ok");
+        return Response(context.Id, JsonText.Write(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteStartArray("contents");
+            writer.WriteStartObject();
+            writer.WriteString("uri", JsonText.Clean(ResourcePrefix + found.Id));
+            writer.WriteString("mimeType", MimeType(found.Id));
+            writer.WriteString("text", JsonText.Clean(text));
+            writer.WriteEndObject();
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }));
+
+        static string MimeType(string id) => Path.GetExtension(id).ToLowerInvariant() switch
+        {
+            ".md" => "text/markdown",
+            ".xml" => "application/xml",
+            ".json" => "application/json",
+            _ => "text/plain",
+        };
     }
 
     private async Task<string> InstanceTextAsync()
@@ -484,107 +637,4 @@ internal sealed class McpRequestProcessor
             return new McpOutcome(response, line);
         }
     }
-
-    /// <summary>Reads tool arguments from a JSON object.</summary>
-    private readonly struct Arguments
-    {
-        private readonly JsonElement _element;
-
-        public Arguments(JsonElement element) => _element = element;
-
-        /// <summary>The <c>name</c> of <c>tools/call</c> params.</summary>
-        public string Name => String("name");
-
-        /// <summary>The <c>arguments</c> object of <c>tools/call</c> params, or the params themselves.</summary>
-        public Arguments ToolArguments =>
-            _element.ValueKind == JsonValueKind.Object && _element.TryGetProperty("arguments", out JsonElement value) && value.ValueKind == JsonValueKind.Object ? new Arguments(value) : this;
-
-        public bool TryString(string key, out string value)
-        {
-            value = string.Empty;
-            if (_element.ValueKind != JsonValueKind.Object || !_element.TryGetProperty(key, out JsonElement item) || item.ValueKind != JsonValueKind.String) return false;
-            value = item.GetString() ?? string.Empty;
-            return true;
-        }
-
-        public string String(string key) => TryString(key, out string value) ? value : string.Empty;
-
-        public int Int(string key, int fallback)
-        {
-            if (_element.ValueKind != JsonValueKind.Object || !_element.TryGetProperty(key, out JsonElement item) || item.ValueKind != JsonValueKind.Number) return fallback;
-            if (item.TryGetInt32(out int whole)) return whole;
-            return item.TryGetDouble(out double number) ? (int)Math.Clamp(Math.Truncate(number), int.MinValue, int.MaxValue) : fallback;
-        }
-
-        public bool Bool(string key, bool fallback)
-        {
-            if (_element.ValueKind != JsonValueKind.Object || !_element.TryGetProperty(key, out JsonElement item)) return fallback;
-            return item.ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => fallback };
-        }
-    }
-}
-
-/// <summary>The tool list of <c>tools/list</c> with the C++ names, descriptions and input schemas.</summary>
-internal static class McpTools
-{
-    private const string Read = """
-        {"name":"rc_status","description":"Current selected RC GUI process and server context.","inputSchema":{"type":"object"}},
-        {"name":"rc_list_connections","description":"List all connected RC server GUI sessions available to MCP.","inputSchema":{"type":"object"}},
-        {"name":"rc_login_status","description":"Login form state without exposing its password.","inputSchema":{"type":"object"}},
-        {"name":"rc_list_servers","description":"List server names loaded by the native RC server selector.","inputSchema":{"type":"object"}},
-        {"name":"rc_list_windows","description":"List visible managed RC windows and tabs.","inputSchema":{"type":"object"}},
-        {"name":"rc_read_window","description":"Read structured state for a visible managed RC window by title.","inputSchema":{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}},
-        {"name":"rc_list_script_editors","description":"List open tracked script editors, including dirty state.","inputSchema":{"type":"object"}},
-        {"name":"rc_read_script_editor","description":"Read the complete current open editor buffer and selection, including unsaved text.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"}},"required":["editor"]}},
-        {"name":"rc_read_script_lines","description":"Read a bounded line-numbered range from the current open editor buffer, including unsaved text.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"},"start":{"type":"integer","minimum":1},"end":{"type":"integer","minimum":1}},"required":["editor","start","end"]}},
-        {"name":"rc_search_script_editor","description":"Search the current open editor buffer and return bounded line-numbered matches with optional context.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"},"query":{"type":"string"},"caseSensitive":{"type":"boolean"},"contextLines":{"type":"integer","minimum":0,"maximum":20}},"required":["editor","query"]}}
-        """;
-
-    private const string Write = """
-        {"name":"rc_replace_script_text","description":"Guarded partial edit: replace one unique expected text region in the open buffer and leave it unsaved; never Save/Apply.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"},"expected":{"type":"string","maxLength":65536},"replacement":{"type":"string","maxLength":65536}},"required":["editor","expected","replacement"]}},
-        {"name":"rc_write_script_editor","description":"Edit only the open script buffer and leave it unsaved; does not Save/Apply to the server.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"},"text":{"type":"string"}},"required":["editor","text"]}},
-        {"name":"rc_save_script_editor","description":"Explicitly Save/Apply the current open script buffer to the server.","inputSchema":{"type":"object","properties":{"editor":{"type":"string"}},"required":["editor"]}}
-        """;
-
-    private const string Login = """
-        {"name":"rc_submit_login","description":"Submit the native login form using its existing password and optional non-secret account/nickname overrides; never returns credentials.","inputSchema":{"type":"object","properties":{"account":{"type":"string"},"nickname":{"type":"string"}}}},
-        {"name":"rc_connect_server","description":"Select and connect a named server through the native RC server list workflow.","inputSchema":{"type":"object","properties":{"server":{"type":"string"}},"required":["server"]}}
-        """;
-
-    private const string Server = """
-        {"name":"rc_send_chat","description":"Send RC chat text through the native connected RC controller.","inputSchema":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}}
-        """;
-
-    private const string Windows = """
-        {"name":"rc_open_window","description":"Create/show a supported managed RC view through its native controller.","inputSchema":{"type":"object","properties":{"view":{"type":"string","enum":["player_list","file_browser","classes","weapons","npcs","server_options","server_flags","folder_config","toalls","accounts","options"]}},"required":["view"]}},
-        {"name":"rc_select_connection","description":"Select which connected RC server session subsequent MCP GUI actions target.","inputSchema":{"type":"object","properties":{"server":{"type":"string"}},"required":["server"]}}
-        """;
-
-    private const string Admin = """
-        {"name":"rc_focused_window_action","description":"Present or close the focused RC window.","inputSchema":{"type":"object","properties":{"action":{"type":"string","enum":["present","close"]}},"required":["action"]}}
-        """;
-
-    /// <summary>The tools the options allow, as a compact JSON array.</summary>
-    public static string ListJson(RcOptions options)
-    {
-        bool full = options.McpFullControl;
-        var groups = new List<string>();
-        if (full || options.McpRead) groups.Add(Read);
-        if (full || options.McpWrite) groups.Add(Write);
-        if (full || options.McpLogin) groups.Add(Login);
-        if (full || options.McpServer) groups.Add(Server);
-        if (full || options.McpWindows) groups.Add(Windows);
-        if (full || options.McpAdmin) groups.Add(Admin);
-        string joined = "[" + string.Join(",", groups.Select(group => group.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal))) + "]";
-        using JsonDocument document = JsonDocument.Parse(joined);
-        return JsonText.Write(writer => document.RootElement.WriteTo(writer));
-    }
-
-    /// <summary>Every tool name, for tests and documentation.</summary>
-    public static IReadOnlyList<string> AllNames { get; } = new[]
-    {
-        "rc_status", "rc_list_connections", "rc_login_status", "rc_list_servers", "rc_list_windows", "rc_read_window", "rc_list_script_editors", "rc_read_script_editor",
-        "rc_read_script_lines", "rc_search_script_editor", "rc_replace_script_text", "rc_write_script_editor", "rc_save_script_editor", "rc_submit_login", "rc_connect_server",
-        "rc_send_chat", "rc_open_window", "rc_select_connection", "rc_focused_window_action",
-    }.ToList();
 }

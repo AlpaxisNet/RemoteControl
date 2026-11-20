@@ -39,7 +39,7 @@ internal sealed class TempFolder : IDisposable
     }
 }
 
-/// <summary>A thread that runs posted actions in order, like a UI thread.</summary>
+/// <summary>A thread that runs posted actions in order, like a UI thread; it is its own synchronization context, so awaits return to it.</summary>
 internal sealed class UiThread : IDisposable
 {
     private readonly BlockingCollection<Action> _queue = new();
@@ -49,6 +49,7 @@ internal sealed class UiThread : IDisposable
     {
         _thread = new Thread(() =>
         {
+            SynchronizationContext.SetSynchronizationContext(new Context(this));
             foreach (Action action in _queue.GetConsumingEnumerable())
             {
                 try { action(); }
@@ -78,10 +79,29 @@ internal sealed class UiThread : IDisposable
         return completion.Task;
     }
 
+    public Task InvokeAsync(Action action) => InvokeAsync(() =>
+    {
+        action();
+        return true;
+    });
+
     public void Dispose()
     {
         _queue.CompleteAdding();
         _thread.Join(TimeSpan.FromSeconds(5));
+    }
+
+    private sealed class Context(UiThread owner) : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback callback, object? state) => owner.Post(() => callback(state));
+
+        public override void Send(SendOrPostCallback callback, object? state)
+        {
+            if (owner.IsCurrent) callback(state);
+            else owner.InvokeAsync(() => callback(state)).GetAwaiter().GetResult();
+        }
+
+        public override SynchronizationContext CreateCopy() => this;
     }
 }
 

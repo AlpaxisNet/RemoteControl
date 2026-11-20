@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using RemoteControl.Extensions;
@@ -27,8 +28,10 @@ internal interface IMcpApprovals
 /// <summary>
 /// What the MCP tools do in the running program (<see cref="IMcpHost"/>, the <c>McpGuiActions</c> of <c>TMain.cpp:823-837</c>): the
 /// login state and form through the start windows, the sessions through the shell, the windows of the program, the active session's
-/// chat and views, the script editors of every session (<see cref="IScriptEditors"/>), and the approval questions. Called by the
-/// bridge on the UI thread; never throws.
+/// chat and views, the script editors of every session (<see cref="IScriptEditors"/>), and the approval questions. The server tools
+/// get the connection of a session (<see cref="FindSessionAsync"/>) with its <see cref="McpSessionJournal"/>: every session gets one
+/// as soon as it exists, attached to each of its connections (reconnects included) until the session ends. Called by the bridge on
+/// the UI thread; never throws.
 /// </summary>
 internal sealed class McpHost : IMcpHost
 {
@@ -50,6 +53,7 @@ internal sealed class McpHost : IMcpHost
 
     private readonly AppShell _shell;
     private readonly IMcpApprovals _approvals;
+    private readonly ConditionalWeakTable<SessionContext, McpSessionJournal> _journals = new();
 
     /// <summary>Creates the host.</summary>
     /// <param name="shell">The program.</param>
@@ -58,6 +62,76 @@ internal sealed class McpHost : IMcpHost
     {
         _shell = shell ?? throw new ArgumentNullException(nameof(shell));
         _approvals = approvals ?? throw new ArgumentNullException(nameof(approvals));
+        _shell.SessionsChanged += (_, _) => UiSafe.Run(AttachJournals, "MCP journals");
+        AttachJournals();
+    }
+
+    /// <summary>The journal of a session (made and attached when the session was first seen).</summary>
+    /// <param name="session">The session.</param>
+    /// <returns>Its journal.</returns>
+    internal McpSessionJournal JournalOf(SessionContext session) => _journals.GetValue(session, context =>
+    {
+        var journal = new McpSessionJournal();
+        context.Attach(connection => journal.Attach(connection));
+        // A window that switches to another server keeps its context: what the journal saw belongs to the old server, so it goes.
+        string server = context.ServerName;
+        context.SessionReplaced += (_, _) => UiSafe.Run(() =>
+        {
+            if (string.Equals(context.ServerName, server, StringComparison.Ordinal)) return;
+            journal.Clear();
+            journal.Add(McpSessionJournal.Connection, "The session went from " + server + " to " + context.ServerName + "; the events of " + server + " were dropped.");
+            server = context.ServerName;
+        }, "MCP journal server switch");
+        return journal;
+    });
+
+    private void AttachJournals()
+    {
+        foreach (SessionContext session in _shell.Sessions)
+            if (!session.IsEnded) JournalOf(session);
+    }
+
+    public Task<McpSessionTarget?> FindSessionAsync(string server)
+    {
+        SessionContext? found = FindContext(server);
+        return Task.FromResult(found is null ? null : new McpSessionTarget(found.ServerName, found.Session, JournalOf(found)));
+    }
+
+    public async Task<McpActionResult> EnterChatLineAsync(McpSessionTarget target, string text)
+    {
+        if (ContextOf(target) is not { } session) return McpActionResult.Fail("Connected RC server session not found");
+        if (string.IsNullOrEmpty(text)) return McpActionResult.Fail("Chat text is empty");
+        bool sent;
+        if (session.Services.Get<ISessionChat>() is { } chat) sent = UiSafe.Run(() => chat.Send(text), "MCP chat line", false);
+        else sent = await session.Session.SendRcChatAsync(text).ConfigureAwait(true);
+        return sent ? McpActionResult.Ok : McpActionResult.Fail("The line could not be sent");
+    }
+
+    public Task<McpActionResult> OpenScriptEditorAsync(McpSessionTarget target, string kind, string name, int npcId)
+    {
+        if (ContextOf(target) is not { } session) return Task.FromResult(McpActionResult.Fail("Connected RC server session not found"));
+        ScriptKind? editorKind = kind switch { "weapon" => ScriptKind.Weapon, "class" => ScriptKind.Class, "npc" => ScriptKind.Npc, _ => null };
+        if (editorKind is null) return Task.FromResult(McpActionResult.Fail("kind must be weapon, class or npc"));
+        Window? window = UiSafe.Run(() => session.OpenTool(ToolIds.ScriptEditor, new ScriptRequest(editorKind.Value, name ?? string.Empty, npcId)), "MCP open script editor", null);
+        return Task.FromResult(window is not null ? McpActionResult.Ok : McpActionResult.Fail("The script editor could not be opened (it needs the NC connection)"));
+    }
+
+    public IDisposable ClaimAnswer(McpSessionTarget target, string kind, string key)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ContextOf(target)?.ClaimedAnswers.Claim(kind, key) ?? new Unsubscriber(() => { });
+    }
+
+    /// <summary>The session of a target: the one whose journal it is (a journal lives as long as its session, across reconnects).</summary>
+    private SessionContext? ContextOf(McpSessionTarget? target) =>
+        target is null ? null : _shell.Sessions.FirstOrDefault(session => !session.IsEnded && _journals.TryGetValue(session, out McpSessionJournal? journal) && ReferenceEquals(journal, target.Journal));
+
+    /// <summary>The session named <paramref name="server"/> (ignoring case, a connected one first), or the selected session when it is empty.</summary>
+    private SessionContext? FindContext(string? server)
+    {
+        if (string.IsNullOrEmpty(server)) return _shell.ActiveSession is { IsEnded: false } active ? active : _shell.Sessions.FirstOrDefault(session => !session.IsEnded && session.Session.IsConnected);
+        return _shell.Sessions.Where(session => !session.IsEnded && string.Equals(session.ServerName, server, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(session => session.Session.IsConnected).FirstOrDefault();
     }
 
     public Task<McpServerState> GetServerStateAsync()

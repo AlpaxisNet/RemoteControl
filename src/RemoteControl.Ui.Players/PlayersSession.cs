@@ -385,13 +385,14 @@ internal sealed partial class PlayersSession : IPrivateMessages
 
     private void OnRights(PlayerRightsEventArgs e)
     {
-        if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        if (_ended || string.IsNullOrEmpty(e.Account) || Context.ClaimedAnswers.TryTake("rights", e.Account)) return;
         ShowDialog(new RightsWindow(this, e.Account, e.Rights));
     }
 
     private void OnAttributes(PlayerAttributesEventArgs e)
     {
-        if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        if (_ended || string.IsNullOrEmpty(e.Account) || Context.ClaimedAnswers.TryTake("attributes", e.Account)
+            || Context.ClaimedAnswers.TryTake("attributes", "#" + e.Attributes.PlayerId.ToString(System.Globalization.CultureInfo.InvariantCulture))) return;
         string text = string.IsNullOrEmpty(e.EditorText) ? e.Attributes.ToEditorText() : e.EditorText;
         Backup("attributes", e.Account, text, modified: false);
         ShowDialog(new AttributesWindow(this, e.Attributes, text));
@@ -399,21 +400,21 @@ internal sealed partial class PlayersSession : IPrivateMessages
 
     private void OnComments(AccountTextEventArgs e)
     {
-        if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        if (_ended || string.IsNullOrEmpty(e.Account) || Context.ClaimedAnswers.TryTake("comments", e.Account)) return;
         Backup("comments", e.Account, e.Text, modified: false);
         ShowDialog(new CommentsWindow(this, e.Account, e.Text));
     }
 
     private void OnProfile(ProfileEventArgs e)
     {
-        if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        if (_ended || string.IsNullOrEmpty(e.Account) || Context.ClaimedAnswers.TryTake("profile", e.Account)) return;
         Backup("profile", e.Account, string.Join('\n', new[] { e.Account }.Concat(e.Fields)), modified: false);
         ShowDialog(new ProfileWindow(this, e.Account, e.Fields));
     }
 
     private void OnAccount(AccountDataEventArgs e)
     {
-        if (_ended) return;
+        if (_ended || Context.ClaimedAnswers.TryTake("account", e.Account.Account)) return;
         string account = e.Account.Account;
         Window? window = Context.Windows.ShowSingle("account:" + account, () => new AccountEditorWindow(this, e.Account));
         if (window is AccountEditorWindow editor && !ReferenceEquals(editor.Data, e.Account)) editor.Load(e.Account);
@@ -421,13 +422,13 @@ internal sealed partial class PlayersSession : IPrivateMessages
 
     private void OnAccountList(AccountListEventArgs e)
     {
-        if (_ended) return;
+        if (_ended || Context.ClaimedAnswers.TryTake("accountlist", ClaimedAnswers.Any)) return;
         if (ShowAccounts() is AccountsListWindow list) list.SetAccounts(e.Accounts);
     }
 
     private void OnBanData(BanDataEventArgs e)
     {
-        if (_ended || string.IsNullOrEmpty(e.Account)) return;
+        if (_ended || string.IsNullOrEmpty(e.Account) || Context.ClaimedAnswers.TryTake("ban", e.Account)) return;
         // The legacy answer (Alpaxis sends it for /openaccess and /openban too) is shown as legacy data: read as lister lines, a banned
         // account looked not banned.
         if (Context.Windows.ShowSingle("ban", () => new BanWindow(this)) is BanWindow window)
@@ -444,6 +445,7 @@ internal sealed partial class PlayersSession : IPrivateMessages
                 UiSafe.Run(() => BanTypesChanged?.Invoke(this, EventArgs.Empty), "PlayersSession.BanTypes");
                 break;
             case "banhistory" or "staffactivity":
+                if (Context.ClaimedAnswers.TryTake(e.Kind, e.Account)) break;
                 string title = (e.Kind == "banhistory" ? "Ban History of " : "Staff Activity of ") + e.Account;
                 var window = new TextViewerWindow(App, title, BanTexts.HistoryText(e.Content), BanTexts.IsHistoryHeader) { Width = 440, Height = 300 };
                 Context.Windows.Track(window);

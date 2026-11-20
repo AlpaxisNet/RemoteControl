@@ -91,6 +91,12 @@ public sealed class AppPaths
     /// <summary>The MCP audit log.</summary>
     public string McpAuditLogFile => Path.Combine(UserDirectory, "mcp-audit.log");
 
+    /// <summary>Where MCP tools keep the previous version of what they overwrite or delete on a server.</summary>
+    public string McpBackupDirectory => Path.Combine(UserDirectory, "mcp-backups");
+
+    /// <summary>The MCP workspace: the local folder MCP tools may use by default (the option <c>mcpfileroots</c> is relative to it).</summary>
+    public string McpWorkspaceDirectory => Path.Combine(UserDirectory, "mcp-files");
+
     /// <summary>The folder of the log files.</summary>
     public string LogsDirectory => Path.Combine(UserDirectory, "logs");
 
@@ -126,6 +132,9 @@ public sealed class AppPaths
 
     /// <summary>The bundled syntax language files.</summary>
     public string LanguageSpecsDirectory => Path.Combine(ProgramDirectory, "language-specs");
+
+    /// <summary>The GS2 language reference the MCP tools read (a copy of the GScript.GS2Taco documentation), beside the program.</summary>
+    public string Gs2ReferenceDirectory => Path.Combine(ProgramDirectory, "gs2-reference");
 
     /// <summary>
     /// Resolves an option value that names a file or folder: an absolute value is kept, a relative one is taken relative to the

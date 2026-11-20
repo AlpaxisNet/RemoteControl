@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 using RemoteControl.Core;
+using RemoteControl.Protocol.Testing;
 
 namespace RemoteControl.Extensions.Tests;
 
@@ -79,15 +80,65 @@ internal sealed class FakeHost : IMcpHost
 
     public Task<McpActionResult> FocusedWindowActionAsync(string action) => Record("focused " + action, McpActionResult.Ok);
 
+    /// <summary>The sessions server tools find, by server name; the first is the selected one.</summary>
+    public List<McpSessionTarget> Sessions { get; } = new();
+
+    /// <summary>Adds a session with a journal attached to it (call on the UI thread when there is one).</summary>
+    public McpSessionTarget AddSession(string server, FakeRcSession session)
+    {
+        var journal = new McpSessionJournal();
+        journal.Attach(session);
+        var target = new McpSessionTarget(server, session, journal);
+        Sessions.Add(target);
+        return target;
+    }
+
+    public Task<McpSessionTarget?> FindSessionAsync(string server) =>
+        Record("find " + server, server.Length == 0 ? Sessions.FirstOrDefault() : Sessions.FirstOrDefault(target => string.Equals(target.ServerName, server, StringComparison.OrdinalIgnoreCase)));
+
+    public Task<McpActionResult> EnterChatLineAsync(McpSessionTarget target, string text)
+    {
+        if (!Sessions.Contains(target)) return Record("line " + target.ServerName + " " + text, McpActionResult.Fail("Connected RC server session not found"));
+        _ = target.Session.SendRcChatAsync(text);
+        return Record("line " + target.ServerName + " " + text, McpActionResult.Ok);
+    }
+
+    public Task<McpActionResult> OpenScriptEditorAsync(McpSessionTarget target, string kind, string name, int npcId) => Record($"editor {target.ServerName} {kind} {name} {npcId}", McpActionResult.Ok);
+
+    /// <summary>The claims made (kind and key), in order, and how many are still open.</summary>
+    public ConcurrentQueue<string> Claims { get; } = new();
+
+    public int OpenClaims;
+
+    public IDisposable ClaimAnswer(McpSessionTarget target, string kind, string key)
+    {
+        if (_ui is not null && !_ui.IsCurrent) Interlocked.Increment(ref WrongThread);
+        Claims.Enqueue(kind + " " + key);
+        Interlocked.Increment(ref OpenClaims);
+        return new Release(() => Interlocked.Decrement(ref OpenClaims));
+    }
+
+    private sealed class Release(Action action) : IDisposable
+    {
+        private Action? _action = action;
+
+        public void Dispose() => Interlocked.Exchange(ref _action, null)?.Invoke();
+    }
+
+    /// <summary>Runs while an approval question is open (as other staff could change the server meanwhile).</summary>
+    public Action? WhileAsking { get; set; }
+
     public Task<bool> ApproveAsync(string description)
     {
         Interlocked.Increment(ref ApprovalQuestions);
+        WhileAsking?.Invoke();
         return Record("approve " + description, Approve);
     }
 
     public Task<McpApproval> ApproveScriptAsync(McpScriptAction action, string editor, string scriptType)
     {
         Interlocked.Increment(ref ApprovalQuestions);
+        WhileAsking?.Invoke();
         return Record($"approve-script {action} {editor} {scriptType}", ScriptApproval);
     }
 }
@@ -112,6 +163,7 @@ internal sealed class BridgeSetup : IAsyncDisposable
             Options = Options,
             Post = ui is null ? action => Task.Run(action) : ui.Post,
             AuditLogFile = Paths.McpAuditLogFile,
+            ReferenceDirectory = folder.Combine("reference"),
             Transport = Transport,
             ProcessId = processId,
         });
@@ -216,8 +268,12 @@ public sealed class McpBridgeTests
         using var folder = new TempFolder();
         await using var setup = new BridgeSetup(folder, o => o with { McpEnabled = true, McpFullControl = false, McpRead = read, McpWrite = write, McpLogin = login, McpServer = server, McpWindows = windows, McpAdmin = admin, McpApprove = false });
         JsonElement list = await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}");
-        Assert.Equal(expected, list.GetProperty("result").GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()!));
-        foreach (string tool in McpTools.AllNames.Except(expected))
+        string[] listed = list.GetProperty("result").GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()!).ToArray();
+        // The program tools of the C++ keep their groups; every server tool listed belongs to an allowed group, and every allowed one is listed.
+        Assert.Equal(expected, listed.Where(name => !McpTools.ServerToolNames.Contains(name)));
+        RcOptions options = setup.Options.Current;
+        Assert.Equal(McpTools.ServerToolNames.Where(name => McpTools.TryGet(name, out McpToolDefinition? definition) && McpTools.Allowed(definition.Group, options)), listed.Where(McpTools.ServerToolNames.Contains));
+        foreach (string tool in McpTools.AllNames.Except(listed))
         {
             (int code, string message) = BridgeSetup.ErrorOf(await setup.ToolAsync(tool));
             Assert.Equal(-32602, code);
@@ -236,7 +292,7 @@ public sealed class McpBridgeTests
         Assert.Equal((-32600, "Invalid Request"), BridgeSetup.ErrorOf(await setup.CallAsync("[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}]")));
         Assert.Equal((-32600, "Invalid Request"), BridgeSetup.ErrorOf(await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":{\"x\":1},\"method\":\"ping\"}")));
         Assert.Equal((-32600, "Invalid Request"), BridgeSetup.ErrorOf(await setup.CallAsync("42")));
-        JsonElement unknown = await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":\"abc\",\"method\":\"resources/list\"}");
+        JsonElement unknown = await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":\"abc\",\"method\":\"prompts/list\"}");
         Assert.Equal("abc", unknown.GetProperty("id").GetString());
         Assert.Equal((-32601, "Method not found"), BridgeSetup.ErrorOf(unknown));
         Assert.Equal((-32601, "Method not found"), BridgeSetup.ErrorOf(await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":null}")));
@@ -419,7 +475,7 @@ public sealed class McpBridgeTests
         using var folder = new TempFolder();
         using var ui = new UiThread();
         await using var setup = new BridgeSetup(folder, ui: ui);
-        foreach (string tool in McpTools.AllNames) await setup.ToolAsync(tool, "{\"editor\":\"Weapon: bow\",\"text\":\"t\",\"expected\":\"t\",\"replacement\":\"u\",\"view\":\"npcs\",\"action\":\"present\",\"server\":\"Alpaxis\",\"query\":\"t\",\"title\":\"x\"}");
+        foreach (string tool in McpTools.AllNames.Except(McpTools.ServerToolNames)) await setup.ToolAsync(tool, "{\"editor\":\"Weapon: bow\",\"text\":\"t\",\"expected\":\"t\",\"replacement\":\"u\",\"view\":\"npcs\",\"action\":\"present\",\"server\":\"Alpaxis\",\"query\":\"t\",\"title\":\"x\"}");
         await setup.CallAsync("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rc/instance\"}");
         Assert.True(setup.Host.Calls.Count > 20);
         Assert.Equal(0, setup.Host.WrongThread);
