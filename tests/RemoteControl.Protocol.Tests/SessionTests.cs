@@ -745,7 +745,16 @@ public sealed class SessionFileTransferTests
         {
             var progress = new ConcurrentQueue<long>();
             session.FileBrowser.TransferProgressChanged += (_, args) => progress.Enqueue(args.Transferred);
-            Assert.Equal(small, await session.FileBrowser.DownloadAsync("levels/small.nw").Within());
+            // The event comes before the download's task completes: whoever awaits it and then listens gets only later events.
+            Task<byte[]?>? downloading = null;
+            bool? completedBeforeEvent = null;
+            session.FileBrowser.FileReceived += (_, args) =>
+            {
+                if (args.Path == "levels/small.nw") completedBeforeEvent = downloading?.IsCompleted ?? false;
+            };
+            downloading = session.FileBrowser.DownloadAsync("levels/small.nw");
+            Assert.Equal(small, await downloading.Within());
+            Assert.False(completedBeforeEvent);
             Task<FileReceivedEventArgs> received = Next<FileReceivedEventArgs>(h => session.FileBrowser.FileReceived += h, h => session.FileBrowser.FileReceived -= h);
             Assert.Equal(large, await session.FileBrowser.DownloadAsync("levels/large.png").Within());
             Assert.Equal("levels/large.png", (await received).Path);
@@ -762,8 +771,13 @@ public sealed class SessionFileTransferTests
         using (session)
         {
             Task<FileTransferFailedEventArgs> failed = Next<FileTransferFailedEventArgs>(h => session.FileBrowser.TransferFailed += h, h => session.FileBrowser.TransferFailed -= h);
-            Assert.Null(await session.FileBrowser.DownloadAsync("levels/missing.nw").Within());
+            Task<byte[]?>? downloading = null;
+            bool? completedBeforeEvent = null;
+            session.FileBrowser.TransferFailed += (_, _) => completedBeforeEvent = downloading?.IsCompleted ?? false;
+            downloading = session.FileBrowser.DownloadAsync("levels/missing.nw");
+            Assert.Null(await downloading.Within());
             Assert.Equal("levels/missing.nw", (await failed).Path);
+            Assert.False(completedBeforeEvent);
         }
     }
 

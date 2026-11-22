@@ -199,16 +199,18 @@ public sealed partial class RcSession
     {
         if (!_downloads.Contains(download)) return;
         Finish(download);
-        download.Completion.TrySetResult(null);
+        // The event first: whoever awaited the download and then listens for the next one must not get this one's.
         if (raise) download.Owner.RaiseTransferFailed(download.Path, reason);
+        download.Completion.TrySetResult(null);
     }
 
     private void CompleteDownload(Download download, byte[] content)
     {
         if (!_downloads.Contains(download)) return;
         Finish(download);
-        download.Completion.TrySetResult(content);
+        // The event first: whoever awaited the download and then listens for the next one must not get this one's.
         download.Owner.RaiseFileReceived(download.Path, content);
+        download.Completion.TrySetResult(content);
     }
 
     private void AbortTransfers()
