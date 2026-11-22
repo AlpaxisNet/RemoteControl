@@ -340,6 +340,17 @@ public sealed class EditorWindowTests
         RecordedCall call = test.Fake.LastCall(nameof(IRcSession.SendNcPacketAsync))!;
         Assert.Equal(151, call.Argument<int>(0));
         Assert.Equal(Protocol.Wire.CommaText.Tokenize("a.nw\nc.nw"), Protocol.Wire.RcText.GetString(call.Argument<byte[]>(1)));
+
+        // Blank lines are not sent as empty level names, and a list that would read as GStrings gets a line quoted.
+        window.Editor.ReplaceText("a.nw\n\nmy level.nw\n");
+        Assert.True(await window.SaveAsync());
+        Assert.Equal("a.nw,\"my level.nw\"", Protocol.Wire.RcText.GetString(test.Fake.LastCall(nameof(IRcSession.SendNcPacketAsync))!.Argument<byte[]>(1)));
+        string first = "~" + new string('a', 94);
+        window.Editor.ReplaceText(first + "\n" + new string('b', 12));
+        Assert.True(await window.SaveAsync());
+        byte[] sent = test.Fake.LastCall(nameof(IRcSession.SendNcPacketAsync))!.Argument<byte[]>(1);
+        Assert.Equal(first + ",\"" + new string('b', 12) + "\"", Protocol.Wire.RcText.GetString(sent));
+        Assert.False(Protocol.Wire.LineListText.IsExactGStringChain(sent));
     }
 
     [AvaloniaFact]

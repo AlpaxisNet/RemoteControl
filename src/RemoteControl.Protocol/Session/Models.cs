@@ -234,11 +234,14 @@ public sealed record ConnectResult(bool Success, string? Error)
     public static ConnectResult Failed(string error) => new(false, error);
 }
 
-/// <summary>How the NC server expects line lists (class scripts, NPC flags, level lists) to be sent.</summary>
+/// <summary>How class scripts and NPC flags are sent to the NC server (<see cref="Wire.LineListText"/>).</summary>
 public enum NcLineListFormat
 {
-    /// <summary>One length-prefixed string per line, as the Alpaxis server reads them (lines of at most 223 bytes).</summary>
+    /// <summary>
+    /// One length-prefixed string per line while every line fits in one (at most 223 bytes), as the Alpaxis server reads them; a list
+    /// with a longer line goes as comma text that cannot be read as such strings, which an Alpaxis server that reads both tells apart.
+    /// </summary>
     LineStrings,
-    /// <summary>Comma text, as RClib sent them to classic servers.</summary>
+    /// <summary>Always comma text, as RClib sent them to classic servers (made so that it cannot be read as length-prefixed strings).</summary>
     CommaText,
 }

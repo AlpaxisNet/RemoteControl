@@ -593,7 +593,25 @@ public sealed class SessionNcTests
             Assert.True(await session.AddClassAsync("fresh", "x = 1;\ny = 2;").Within());
             Assert.Equal("fresh", (await added).Value);
             Assert.Equal("x = 1;\ny = 2;", nc.Classes["fresh"]);
-            Assert.False(await session.AddClassAsync("long", new string('x', 300)).Within());
+            // Lines that all fit go as one GString each, as every Alpaxis server reads them.
+            Assert.True(LineListText.IsExactGStringChain(nc.LastLineList));
+
+            // A longer line makes the list go as comma text the server cannot take for GStrings.
+            string longLine = "  echo(\"" + new string('x', 300) + "\\n\");";
+            string longScript = "function onCreated() {\n" + longLine + "\n\n  this.a = \"b,c\";\n}\n";
+            Assert.True(await session.AddClassAsync("long", longScript).Within());
+            await Eventually(() => nc.Classes.ContainsKey("long"));
+            Assert.False(LineListText.IsExactGStringChain(nc.LastLineList));
+            Assert.Equal(longScript, nc.Classes["long"]);
+            Assert.True(await session.AddClassAsync("plain", new string('x', 300)).Within());
+            await Eventually(() => nc.Classes.ContainsKey("plain"));
+            Assert.Equal(new string('x', 300), nc.Classes["plain"]);
+
+            string flags = "short=1\nlist=" + string.Join(",", Enumerable.Range(0, 120)) + "\nempty=";
+            Assert.True(await session.SetNpcFlagsAsync(1001, flags).Within());
+            await Eventually(() => nc.NpcFlags.ContainsKey(1001));
+            Assert.Equal(flags, nc.NpcFlags[1001]);
+            Assert.False(LineListText.IsExactGStringChain(nc.LastLineList));
         }
     }
 

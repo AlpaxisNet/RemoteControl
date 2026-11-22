@@ -16,22 +16,22 @@ public sealed partial class RcSession
     private static void WriteNpcId(PacketWriter writer, int id) =>
         writer.WriteByte(unchecked((byte)(((id >> 14) & 0xFF) + 32))).WriteByte((byte)(((id >> 7) & 0x7F) + 32)).WriteByte((byte)((id & 0x7F) + 32));
 
+    /// <summary>
+    /// Writes a class script or NPC flags, the last field of their packet (<see cref="LineListText"/>): one GString per line while every
+    /// line fits in one (at most 223 bytes), as every Alpaxis server reads them; a list with a longer line, or every list with
+    /// <see cref="NcLineListFormat.CommaText"/>, as comma text that the server cannot take for GStrings.
+    /// </summary>
     private void WriteLineList(PacketWriter writer, string? text)
     {
         string cleaned = (text ?? string.Empty).Replace("\r", string.Empty, StringComparison.Ordinal);
-        if (_options.NcLineListFormat == NcLineListFormat.CommaText)
+        List<string> lines = SplitParts(cleaned);
+        if (_options.NcLineListFormat == NcLineListFormat.CommaText || lines.Any(line => RcText.ByteCount(line) > GEncoding.MaxGStringLength))
         {
-            writer.WriteText(CommaText.Tokenize(cleaned));
+            writer.WriteText(LineListText.CommaText(cleaned));
             return;
         }
 
-        List<string> lines = SplitParts(cleaned);
-        for (int index = 0; index < lines.Count; index++)
-        {
-            if (RcText.ByteCount(lines[index]) > GEncoding.MaxGStringLength)
-                throw new PacketTooLongException($"Line {index + 1} is longer than 223 bytes; the server reads one length byte per line.");
-            writer.WriteGString(lines[index]);
-        }
+        foreach (string line in lines) writer.WriteGString(line);
     }
 
     private Task<bool> SendListerTextNow(string command, string? value, ClientPacketId packet)

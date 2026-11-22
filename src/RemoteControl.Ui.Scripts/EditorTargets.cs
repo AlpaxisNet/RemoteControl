@@ -408,7 +408,16 @@ internal sealed class LevelListTarget : EditorTarget
     {
         IRcSession session = context.Session;
         if (!session.IsNcAuthenticated) return SaveOutcome.NcDown;
-        byte[] payload = RcText.GetBytes(CommaText.Tokenize(text));
+        // Comma text, as the C++ sent it, made so that a server that also reads GString lists cannot take it for one.
+        byte[] payload;
+        try
+        {
+            payload = RcText.GetBytes(LineListText.CommaText(Normalize(text).Trim('\n')));
+        }
+        catch (PacketTooLongException exception)
+        {
+            return new SaveOutcome(false, "Not saved: " + exception.Message + " Your changes are kept.");
+        }
         return await session.SendNcPacketAsync(LevelListSetPacket, payload).ConfigureAwait(true) ? SaveOutcome.Ok : SaveOutcome.Refused(session);
     }
 }
