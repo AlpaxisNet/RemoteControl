@@ -613,6 +613,9 @@ public sealed class ScriptEditorControl : UserControl
         _signaturePopup.IsOpen = true;
     }
 
+    /// <summary>What the analysis runs, on a background task (tests hold it back to replace the text while it runs).</summary>
+    internal Func<string, DiagnosticsOptions, IReadOnlyList<Diagnostic>> Analyzer { get; set; } = Gs2Diagnostics.Analyze;
+
     /// <summary>Runs the analysis now (tests and option changes); the result arrives on the UI thread.</summary>
     /// <returns>Completes when the result was applied or dropped.</returns>
     internal Task AnalyzeNowAsync()
@@ -807,7 +810,8 @@ public sealed class ScriptEditorControl : UserControl
         long version = _version;
         bool lsp = _services?.Options.Current.Lsp ?? false;
         DiagnosticsOptions options = DiagnosticsOptions.ForDefinitions(ApiDefinitionCatalog.IsLoaded ? ApiDefinitionCatalog.Current : null, lsp);
-        IReadOnlyList<Diagnostic> result = await Task.Run(() => Gs2Diagnostics.Analyze(snapshot, options)).ConfigureAwait(true);
+        Func<string, DiagnosticsOptions, IReadOnlyList<Diagnostic>> analyze = Analyzer;
+        IReadOnlyList<Diagnostic> result = await Task.Run(() => analyze(snapshot, options)).ConfigureAwait(true);
         if (version != _version || !DiagnosticsEnabled) return;
         _diagnostics = result;
         _diagnosticsRenderer.Diagnostics = result;

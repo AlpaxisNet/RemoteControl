@@ -83,9 +83,19 @@ public sealed class EditorControlTests
         var (env, _, editor) = Open();
         using (env)
         {
+            // The analysis is held until the text was replaced: a runner that paused the UI thread long enough let it finish first,
+            // and then its result was the current one.
+            using var gate = new ManualResetEventSlim(false);
+            Func<string, DiagnosticsOptions, IReadOnlyList<Diagnostic>> analyze = editor.Analyzer;
+            editor.Analyzer = (text, options) =>
+            {
+                gate.Wait(TimeSpan.FromSeconds(10));
+                return analyze(text, options);
+            };
             editor.SetContent("function onCreated() {\n  if (a {\n  }\n}");
             Task running = editor.AnalyzeNowAsync();
             editor.ReplaceText("function onCreated() {\n}");
+            gate.Set();
             await running;
             Assert.DoesNotContain(editor.Diagnostics, item => item.Severity == DiagnosticSeverity.Error);
         }
