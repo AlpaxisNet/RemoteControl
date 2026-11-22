@@ -82,7 +82,7 @@ internal static partial class McpServerTools
         if (updated == current) return Status("The server " + kind + " already are this; nothing was sent.");
         string change = notes.Count > 0 ? string.Join("; ", notes) : current is null ? LineCount(updated) + " lines (the current text could not be read)" : DiffSummary(current, updated);
         await c.ApproveAsync("Change the server " + kind + " of " + c.Server + ": " + (notes.Count > 0 ? change : change + "\n\nThe new text:\n" + McpToolContext.Whole(updated))).ConfigureAwait(true);
-        if (c.Options.McpApprove && current is not null && await FetchServerTextAsync(c, c.Target, kind).ConfigureAwait(true) != current)
+        if (c.AsksApproval && current is not null && await FetchServerTextAsync(c, c.Target, kind).ConfigureAwait(true) != current)
             throw new McpToolException("The server " + kind + " changed while the question was open; nothing was sent. Read them again and repeat the change.");
         McpBackupEntry? backup = current is null ? null : await c.BackupAsync(c.Server, BackupKind(kind), kind, 0, string.Empty, Encoding.UTF8.GetBytes(current), "rc_write_server_text").ConfigureAwait(true);
         long since = c.Target.Journal.Sequence;

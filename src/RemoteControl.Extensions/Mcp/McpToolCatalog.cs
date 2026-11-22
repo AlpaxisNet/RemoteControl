@@ -66,8 +66,8 @@ internal static class McpTools
     /// <summary>A tool by name.</summary>
     public static bool TryGet(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out McpToolDefinition? definition) => ByName.TryGetValue(name ?? string.Empty, out definition);
 
-    /// <summary>Whether the options allow a group.</summary>
-    public static bool Allowed(McpToolGroup group, RcOptions options) => options.McpFullControl || group switch
+    /// <summary>Whether the options allow a group (every group with <c>mcpfullcontrol</c> or <c>mcpbypass</c>).</summary>
+    public static bool Allowed(McpToolGroup group, RcOptions options) => options.McpFullControl || options.McpBypass || group switch
     {
         McpToolGroup.Read => options.McpRead,
         McpToolGroup.Write => options.McpWrite,
@@ -76,6 +76,9 @@ internal static class McpTools
         McpToolGroup.Windows => options.McpWindows,
         _ => options.McpAdmin,
     };
+
+    /// <summary>Whether an MCP action that changes something is asked first: <c>mcpapprove</c> is on and <c>mcpbypass</c> is off.</summary>
+    public static bool AsksApproval(RcOptions options) => options.McpApprove && !options.McpBypass;
 
     /// <summary>The tools the options allow, as a compact JSON array.</summary>
     public static string ListJson(RcOptions options) => JsonText.Write(writer =>
@@ -229,7 +232,7 @@ internal static class McpTools
             "\"connect\":{\"type\":\"boolean\"}", None, McpServerTools.NcConnectAsync, timeout: true),
 
         // Server: game actions.
-        Tool("rc_command", McpToolGroup.Server, "Send a line (or lines) as RC chat, which runs the server's commands (rc_server_commands lists them; on Alpaxis for example /stats, /playerinfo, /find, /updatelevelall, /reloadweapons, /refreshfilesystem, /savenpcs, /npcstart, /npcshutdown, /restartserver), or as NC chat (connection nc), or type it into the program's chat field with the program's own commands (connection program; it always goes to the server, never to a selected IRC tab); returns what the server answered meanwhile.",
+        Tool("rc_command", McpToolGroup.Server, "Send a line (or lines) as RC chat, which runs the server's commands (rc_server_commands lists them; on Alpaxis for example /stats, /playerinfo, /find, /updatelevelall, /reloadweapons, /refreshfilesystem, /savenpcs, /npcstart, /npcshutdown, /restartserver), or as NC chat (connection nc), or type it into the program's chat field with the program's own commands (connection program; it always goes to the server, never to a selected IRC tab); returns what the server answered meanwhile. One line of a command that only answers (/find, /help, /version, /credits, /stats, /optionshelp, /playerinfo, /scripthelp, /scriptscan) runs without the approval question.",
             "\"text\":{\"type\":\"string\"},\"connection\":{\"type\":\"string\",\"enum\":[\"rc\",\"nc\",\"program\"]}," + Collect, Required("text"), McpServerTools.CommandAsync, destructive: true),
         Tool("rc_send_message", McpToolGroup.Server, "Send a private message (to one player, or a mass message to several), an admin message (to players or all), or a to-all message.",
             "\"kind\":{\"type\":\"string\",\"enum\":[\"pm\",\"admin\",\"toall\"]},\"message\":{\"type\":\"string\"},\"ids\":{\"type\":\"array\",\"items\":{\"type\":\"integer\"}},\"accounts\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"all\":{\"type\":\"boolean\",\"description\":\"Admin message to everyone.\"}", Required("message"), McpServerTools.SendMessageAsync),

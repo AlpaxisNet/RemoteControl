@@ -50,6 +50,12 @@ public sealed record McpBridgeOptions
 
     /// <summary>Where problems are logged; <see cref="AppLog.Default"/> when not set.</summary>
     public AppLog? Log { get; init; }
+
+    /// <summary>
+    /// Why the host denies approvals without asking anyone, added to the message of every denial (a headless program: "no one can answer
+    /// approval questions ..."); empty when the user is asked.
+    /// </summary>
+    public string? DeniedNote { get; init; }
 }
 
 /// <summary>
@@ -92,7 +98,7 @@ public sealed class McpBridge : IAsyncDisposable, IDisposable
         var services = new McpToolServices(new McpBackupStore(options.BackupDirectory ?? Path.Combine(data, "mcp-backups"), _log), options.WorkspaceDirectory ?? Path.Combine(data, "mcp-files"),
             SaveScriptTypeApproval, options.ProcessId, _log, options.ReferenceDirectory,
             new McpScriptApi(options.ScriptApiCacheFile ?? Path.Combine(data, "cache", "editors", "scriptapi.json"), options.ScriptApiHandler));
-        _processor = new McpRequestProcessor(new Invoker(this), () => options.Options.Current, SaveScriptTypeApproval, options.ProcessId, services: services);
+        _processor = new McpRequestProcessor(new Invoker(this), () => options.Options.Current, SaveScriptTypeApproval, options.ProcessId, services: services, deniedNote: options.DeniedNote);
     }
 
     /// <summary>Where the bridge listens: the socket path, or the pipe name on Windows.</summary>

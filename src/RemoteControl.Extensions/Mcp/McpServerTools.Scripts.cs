@@ -342,7 +342,7 @@ internal static partial class McpServerTools
         string change = unread ? "replacing the script there, which could not be read, without a backup: " + LineCount(script) + " lines"
             : current is null ? "new, " + LineCount(script) + " lines" : DiffSummary(Normalize(current.Script), script);
         await c.ApproveScriptAsync(McpScriptAction.Write, ApprovalType(kind), (kind == ScriptKind.Npc ? id + " " + name : name) + " on " + c.Server + " (" + change + ")").ConfigureAwait(true);
-        if (c.Options.McpApprove && (current is not null || !exists))
+        if (c.AsksApproval && (current is not null || !exists))
         {
             // The question may have been open for a while: what is written must replace the version it was about (and that is backed up).
             bool now = current is not null || await ExistsAsync(c, c.Target, kind, name, id).ConfigureAwait(true);
@@ -568,7 +568,7 @@ internal static partial class McpServerTools
                 if (flags == current) return Status("The flags of " + what + " already are this; nothing was sent.");
                 await c.ApproveAsync("Change the flags of " + what + " on " + c.Server + (current is null ? ", replacing flags that could not be read, without a backup" : string.Empty) + ": "
                     + (notes.Count > 0 ? string.Join("; ", notes) : "\n" + McpToolContext.Whole(flags))).ConfigureAwait(true);
-                if (c.Options.McpApprove && current is not null && (await ReadFlagsAsync().ConfigureAwait(true)).Text != current)
+                if (c.AsksApproval && current is not null && (await ReadFlagsAsync().ConfigureAwait(true)).Text != current)
                     throw new McpToolException("The flags of " + what + " changed while the question was open; nothing was sent. Read them again and repeat the change.");
                 if (current is not null) backup = await c.BackupAsync(c.Server, "npcflags", npcName, npcId, string.Empty, Encoding.UTF8.GetBytes(current), "rc_npc_action").ConfigureAwait(true);
                 McpToolContext.Sent(await session.SetNpcFlagsAsync(npcId, flags).ConfigureAwait(true), session, "The flags");

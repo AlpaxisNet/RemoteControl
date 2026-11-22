@@ -264,6 +264,9 @@ public static class OptionKeys
     /// <summary>The key of <see cref="RcOptions.McpApprove"/>.</summary>
     public const string McpApprove = "mcpapprove";
 
+    /// <summary>The key of <see cref="RcOptions.McpBypass"/>.</summary>
+    public const string McpBypass = "mcpbypass";
+
     /// <summary>The key of <see cref="RcOptions.McpAudit"/>.</summary>
     public const string McpAudit = "mcpaudit";
 

@@ -502,7 +502,7 @@ internal static partial class McpServerTools
             if (banned && release.Length == 0 && type.Length == 0) throw new McpToolException("A ban needs a type (rc_list_ban_types), releaseSeconds, or noEnd: true.");
             string length = release.Length == 0 ? "the length of its type" : release == "0" ? "no end" : release + " seconds";
             string where = world == "all" ? " on every server of the network (from " + c.Server + ")" : " on " + c.Server;
-            // A ban on every server of the network is asked every time, whatever mcpapprove says.
+            // A ban on every server of the network is asked every time, whatever mcpapprove says (only mcpbypass skips it).
             await c.ApproveAsync((banned ? "Ban " : "Unban ") + target + where + " (" + (type.Length > 0 ? type + ", " : string.Empty) + (banned ? length : "lifted") + ")" + (reason.Length > 0 ? ": " + reason : string.Empty), always: world == "all").ConfigureAwait(true);
             McpToolContext.Sent(await session.SetBanAsync(target, world, banned, type, release, reason).ConfigureAwait(true), session, "The ban");
         }

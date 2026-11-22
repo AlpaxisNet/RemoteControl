@@ -146,7 +146,7 @@ internal sealed class FakeHost : IMcpHost
 /// <summary>A bridge with a fake host and options in a temporary folder.</summary>
 internal sealed class BridgeSetup : IAsyncDisposable
 {
-    public BridgeSetup(TempFolder folder, Func<RcOptions, RcOptions>? options = null, UiThread? ui = null, int processId = 4242, string? socketDirectory = null)
+    public BridgeSetup(TempFolder folder, Func<RcOptions, RcOptions>? options = null, UiThread? ui = null, int processId = 4242, string? socketDirectory = null, string? deniedNote = null)
     {
         Folder = folder;
         Paths = new AppPaths(folder.Combine("user"), folder.Combine("program"));
@@ -166,6 +166,7 @@ internal sealed class BridgeSetup : IAsyncDisposable
             ReferenceDirectory = folder.Combine("reference"),
             Transport = Transport,
             ProcessId = processId,
+            DeniedNote = deniedNote,
         });
     }
 

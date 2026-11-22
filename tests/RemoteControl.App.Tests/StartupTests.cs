@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia.Headless.XUnit;
 using RemoteControl.Core;
+using RemoteControl.Extensions;
 using RemoteControl.Protocol.Testing;
 using RemoteControl.Ui.Common;
 using RemoteControl.Ui.Shell;
@@ -48,6 +49,19 @@ public sealed class CommandLineTests
         var ran = new List<string>();
         Program.Dispatch(debug, _ => { ran.Add("mcp"); return 3; }, _ => { ran.Add("windows"); return 0; });
         Assert.Equal(new[] { "windows" }, ran);
+    }
+
+    [Fact]
+    public void Headless_runs_the_program_without_a_desktop()
+    {
+        StartupArguments headless = StartupArguments.Parse(["--headless", "--debug"]);
+        Assert.Equal(StartMode.Windows, headless.Mode);
+        Assert.True(headless.Headless);
+        Assert.True(headless.Debug);
+        Assert.Empty(headless.Remaining);
+        Assert.False(StartupArguments.Parse([]).Headless);
+        // --mcp still wins: the stdio server has no Avalonia at all, headless or not.
+        Assert.Equal(StartMode.McpServer, StartupArguments.Parse(["--headless", "--mcp"]).Mode);
     }
 
     [Fact]
@@ -135,6 +149,49 @@ public sealed class StartupTests
         Assert.True(hotkey.Disposed);
         Assert.Equal(1, desktop.Shutdowns);
         Assert.False(runtime.StartController.IsLoginVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task A_headless_runtime_makes_no_tray_or_hotkey_and_denies_approvals_it_cannot_ask()
+    {
+        using var env = new TestEnvironment();
+        int trays = 0;
+        int hotkeys = 0;
+        AppRuntime runtime = AppRuntime.Start(new AppRuntimeSettings
+        {
+            Paths = env.Paths,
+            Services = env.Services,
+            Factory = options => new FakeRcSession(options.Account),
+            Desktop = _ => new FakeDesktop(),
+            Tray = _ =>
+            {
+                trays++;
+                return new FakeTrayIcon();
+            },
+            Hotkey = () =>
+            {
+                hotkeys++;
+                return new FakeHotkeyBackend();
+            },
+            Timers = new FakeTimers(),
+            ShowProblems = _ => Task.CompletedTask,
+            ShowHotkeyProblem = _ => Task.CompletedTask,
+            Headless = true,
+        });
+
+        Assert.Equal((0, 0), (trays, hotkeys));
+        Assert.Null(runtime.Tray);
+        Assert.False(runtime.Shell.TrayAvailable);
+        Assert.True(runtime.StartController.IsLoginVisible);
+        // MCP is off in a fresh options file: a headless program says that nothing can reach it.
+        Assert.Contains(env.Log.Snapshot(), line => line.Contains("MCP is switched off", StringComparison.Ordinal));
+        int before = RcWindow.OpenWindows.Count;
+        Assert.False(await runtime.McpHost.ApproveAsync("Send RC chat text"));
+        Assert.Equal(McpApproval.Deny, await runtime.McpHost.ApproveScriptAsync(McpScriptAction.Write, "Weapon: bow", "Weapon"));
+        Assert.Equal(before, RcWindow.OpenWindows.Count);
+        Assert.Contains(env.Log.Snapshot(), line => line.Contains("needs approval was denied", StringComparison.Ordinal) && line.Contains("Send RC chat text", StringComparison.Ordinal));
+
+        Assert.True(await runtime.Shell.QuitAsync());
     }
 
     [AvaloniaFact]

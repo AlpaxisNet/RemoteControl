@@ -297,6 +297,15 @@ internal sealed class AppShell : IAppShell
         return true;
     }
 
+    /// <summary>
+    /// Ends the program at once, without the question about unsaved editors: a headless program (<c>--headless</c>) that was told to
+    /// stop (Ctrl+C, a termination signal) has no one to ask.
+    /// </summary>
+    internal void QuitWithoutAsking()
+    {
+        if (!_quitting) QuitNow();
+    }
+
     /// <summary>The titles of every session's script editors with unconfirmed changes, with the server's name when there are several sessions.</summary>
     /// <returns>The titles.</returns>
     internal IReadOnlyList<string> UnsavedEditors()

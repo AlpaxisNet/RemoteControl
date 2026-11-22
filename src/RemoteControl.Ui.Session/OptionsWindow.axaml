@@ -250,6 +250,9 @@
               <CheckBox Name="mcpapprove" Content="Require approval for mutations" />
               <CheckBox Name="mcpaudit" Content="Write MCP audit log" />
             </UniformGrid>
+            <CheckBox Name="mcpbypass" Content="Bypass all MCP permissions (every tool allowed, nothing asked)" />
+            <TextBlock Classes="label" TextWrapping="Wrap"
+                       Text="With the bypass on, MCP clients may change anything on every connected server without a question; backups, the audit log, the file roots and the server scope still apply. A headless program (RemoteControl --headless) needs it, or approvals off, since no one is there to answer." />
             <Border BorderThickness="1" BorderBrush="{DynamicResource RcBorderBrush}" CornerRadius="3" Padding="6" Margin="0,4">
               <StackPanel Spacing="2">
                 <TextBlock Classes="section" Margin="0" Text="Saved script approvals" />

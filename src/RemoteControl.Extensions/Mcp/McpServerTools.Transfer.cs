@@ -807,7 +807,7 @@ internal static partial class McpServerTools
                 string name = exists && kind != ScriptKind.Npc ? ResolveScript(target, kind, entry.Name, 0).Name : entry.Name;
                 await c.ApproveScriptAsync(McpScriptAction.Write, ApprovalType(kind), (kind == ScriptKind.Npc ? entry.NpcId + " " : string.Empty) + name + " on " + target.ServerName + " (restore of " + entry.Id + (exists ? ", replacing the script there" : ", a new " + KindName(kind)) + ")").ConfigureAwait(true);
                 // The question may have been open for a while: a script added or deleted since would be written over without its backup.
-                if (c.Options.McpApprove && await ExistsAsync(c, target, kind, name, entry.NpcId).ConfigureAwait(true) != exists)
+                if (c.AsksApproval && await ExistsAsync(c, target, kind, name, entry.NpcId).ConfigureAwait(true) != exists)
                     throw new McpToolException(Describe(kind, name, entry.NpcId) + " was " + (exists ? "deleted" : "added") + " on " + target.ServerName + " while the question was open; nothing was restored. Look at it again and repeat the restore.");
                 ScriptReceivedEventArgs? current = exists ? await c.ReadForBackupAsync(() => FetchScriptAsync(c, target, kind, name, entry.NpcId), "script of " + Describe(kind, name, entry.NpcId)).ConfigureAwait(true) : null;
                 backup = (await SendScriptAsync(c, target, kind, name, entry.NpcId, Normalize(text), entry.Image, current, "rc_restore_backup").ConfigureAwait(true)).Backup;

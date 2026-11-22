@@ -25,6 +25,28 @@ public sealed class DialogTests
     }
 
     [AvaloniaFact]
+    public async Task Unattended_dialogs_are_logged_and_answered_with_cancel_at_once()
+    {
+        using var env = new TestEnvironment();
+        int before = RcWindow.OpenWindows.Count;
+        Dialogs.Unattended = true;
+        try
+        {
+            Assert.False(await Dialogs.ConfirmAsync("Quit", "Quit anyway?"));
+            Assert.Null(await Dialogs.PromptAsync("Password", "Password of bob:", password: true));
+            Assert.Null(await Dialogs.ChooseAsync("Server", "Choose:", ["a", "b"]));
+            await Dialogs.ShowErrorAsync("Connection Error", "The server closed\nthe connection.");
+        }
+        finally
+        {
+            Dialogs.Unattended = false;
+        }
+        Assert.Equal(before, RcWindow.OpenWindows.Count);
+        Assert.Contains(UiSafe.Log.Snapshot(), line => line.Contains("Not shown (headless): Connection Error: The server closed the connection.", StringComparison.Ordinal));
+        Assert.Contains(UiSafe.Log.Snapshot(), line => line.Contains("answered Cancel: Quit: Quit anyway?", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
     public async Task Error_window_is_400_by_120_and_modal_on_its_owner()
     {
         using var env = new TestEnvironment(theme: "nord");

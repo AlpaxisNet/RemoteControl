@@ -103,7 +103,8 @@ internal static partial class McpServerTools
         if (connection is not ("rc" or "nc" or "program")) throw new McpToolException("connection must be rc, nc or program.");
         c.RequireRc();
         if (connection == "nc") c.RequireNc();
-        await c.ApproveAsync("Run on " + c.Server + " (" + connection + "):\n" + McpToolContext.Whole(text)).ConfigureAwait(true);
+        // A command that only answers (/find, /stats, /playerinfo ...) is not asked: it changes nothing.
+        if (!IsReadOnlyCommand(text, connection)) await c.ApproveAsync("Run on " + c.Server + " (" + connection + "):\n" + McpToolContext.Whole(text)).ConfigureAwait(true);
         long since = c.Target.Journal.Sequence;
         switch (connection)
         {

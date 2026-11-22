@@ -39,6 +39,22 @@ jobs:
             kill $pid'
           test -f "$XDG_CONFIG_HOME/GScriptRC/control2config.txt"
           echo "The packaged program started and wrote its options file."
+      - name: Start the packaged program headless
+        # No display at all (--headless): it must stay up, write its options file and end by itself on a termination signal.
+        run: |
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/rc-headless"
+          unset DISPLAY WAYLAND_DISPLAY
+          publish/linux-x64/RemoteControl --headless 2> "$RUNNER_TEMP/headless.log" & pid=$!
+          sleep 15
+          kill -0 $pid || { cat "$RUNNER_TEMP/headless.log"; echo "RemoteControl --headless ended by itself"; exit 1; }
+          kill -TERM $pid
+          for i in $(seq 1 20); do kill -0 $pid 2>/dev/null || break; sleep 0.5; done
+          if kill -0 $pid 2>/dev/null; then cat "$RUNNER_TEMP/headless.log"; echo "RemoteControl --headless did not end on SIGTERM"; kill -9 $pid; exit 1; fi
+          wait $pid
+          cat "$RUNNER_TEMP/headless.log"
+          grep -q "runs headless" "$RUNNER_TEMP/headless.log"
+          test -f "$XDG_CONFIG_HOME/GScriptRC/control2config.txt"
+          echo "The packaged program ran headless without a display, wrote its options file and ended on SIGTERM."
       - uses: actions/upload-artifact@v4
         with:
           name: RemoteControl-linux-x64

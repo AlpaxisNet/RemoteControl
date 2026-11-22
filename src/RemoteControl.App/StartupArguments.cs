@@ -15,14 +15,16 @@ internal enum StartMode
 /// <summary>
 /// The command line of the C++ (<c>TMain.cpp:656-685</c>): <c>--mcp</c>, <c>--mcp-instance=N</c> / <c>--mcp-instance N</c> (read by
 /// <see cref="McpCommandLine"/>), <c>--debug</c> (log lines to standard error) and <c>--packetlog</c> (implies <c>--debug</c>; every received
-/// packet to standard error). Everything else is passed on to Avalonia.
+/// packet to standard error). Added: <c>--headless</c> runs the program without any window on the desktop (for MCP clients). Everything
+/// else is passed on to Avalonia.
 /// </summary>
 /// <param name="Mode">What the process does.</param>
 /// <param name="McpInstance">The process id of <c>--mcp-instance</c>, or 0.</param>
 /// <param name="Debug">Whether log lines go to standard error.</param>
 /// <param name="PacketLog">Whether every received packet goes to standard error.</param>
 /// <param name="Remaining">The other arguments, in order.</param>
-internal sealed record StartupArguments(StartMode Mode, int McpInstance, bool Debug, bool PacketLog, IReadOnlyList<string> Remaining)
+/// <param name="Headless">Whether the program runs without any window, tray icon or hotkey on the desktop (<c>--headless</c>).</param>
+internal sealed record StartupArguments(StartMode Mode, int McpInstance, bool Debug, bool PacketLog, IReadOnlyList<string> Remaining, bool Headless = false)
 {
     /// <summary>The arguments of a start without any.</summary>
     public static StartupArguments Default { get; } = new(StartMode.Windows, 0, false, false, Array.Empty<string>());
@@ -36,13 +38,15 @@ internal sealed record StartupArguments(StartMode Mode, int McpInstance, bool De
         McpCommandLine mcp = McpCommandLine.Parse(arguments);
         bool debug = false;
         bool packetLog = false;
+        bool headless = false;
         var remaining = new List<string>();
         foreach (string argument in mcp.Remaining)
         {
             if (argument == "--debug") debug = true;
             else if (argument == "--packetlog") packetLog = debug = true;
+            else if (argument == "--headless") headless = true;
             else remaining.Add(argument);
         }
-        return new StartupArguments(mcp.McpMode ? StartMode.McpServer : StartMode.Windows, mcp.Instance, debug, packetLog, remaining);
+        return new StartupArguments(mcp.McpMode ? StartMode.McpServer : StartMode.Windows, mcp.Instance, debug, packetLog, remaining, headless);
     }
 }

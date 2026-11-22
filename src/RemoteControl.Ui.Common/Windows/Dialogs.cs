@@ -58,6 +58,12 @@ public static class Dialogs
     /// <summary>The name of the list of <see cref="ChooseAsync"/> (for tests).</summary>
     public const string ListName = "DialogList";
 
+    /// <summary>
+    /// Whether no one can answer a dialog: the program runs headless (<c>--headless</c>). A dialog is then not shown; its title and text are
+    /// logged and the call returns the cancel answer at once (a message or error just completes), so that nothing waits for a click.
+    /// </summary>
+    public static bool Unattended { get; set; }
+
     /// <summary>Shows a message with an OK button.</summary>
     /// <param name="title">The window title.</param>
     /// <param name="message">The text.</param>
@@ -117,6 +123,13 @@ public static class Dialogs
 
     private static async Task<bool> ShowAsync(RcDialog dialog, Window? owner)
     {
+        if (Unattended)
+        {
+            string text = dialog.Title + ": " + dialog.Message.Replace('\n', ' ');
+            if (dialog.Kind == DialogKind.Error) UiSafe.Log.Warn("Not shown (headless): " + text);
+            else UiSafe.Log.Info("Not shown (headless), answered " + (dialog.Kind is DialogKind.Message ? "OK" : "Cancel") + ": " + text);
+            return false;
+        }
         try
         {
             if (!Dispatcher.UIThread.CheckAccess()) return await Dispatcher.UIThread.InvokeAsync(() => ShowAsync(dialog, owner)).ConfigureAwait(true);

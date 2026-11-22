@@ -43,6 +43,29 @@ internal static partial class McpServerTools
         ("/scriptscan weapons/npcs/classes/levels/all text", "Finds the script lines that hold the text."),
     };
 
+    /// <summary>
+    /// The server commands that only answer, changing nothing on the server and opening no window in the program: <c>rc_command</c> runs
+    /// them without the approval question. Not here: what changes something, and the <c>/open…</c> commands, whose answers the program
+    /// shows in windows.
+    /// </summary>
+    internal static readonly IReadOnlySet<string> ReadOnlyCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "/help", "/version", "/credits", "/stats", "/optionshelp", "/playerinfo", "/find", "/scripthelp", "/scriptscan",
+    };
+
+    /// <summary>
+    /// Whether <paramref name="text"/> is one line holding one of <see cref="ReadOnlyCommands"/> (with its arguments) for the RC or the
+    /// program's chat field: then <c>rc_command</c> does not ask. Several lines, NC chat, and anything else are asked.
+    /// </summary>
+    internal static bool IsReadOnlyCommand(string text, string connection)
+    {
+        if (connection is not ("rc" or "program")) return false;
+        string line = (text ?? string.Empty).Trim();
+        if (line.Length < 2 || line[0] != '/' || line.IndexOfAny(new[] { '\n', '\r' }) >= 0) return false;
+        int space = line.IndexOfAny(new[] { ' ', '\t' });
+        return ReadOnlyCommands.Contains(space < 0 ? line : line[..space]);
+    }
+
     private static readonly string[] OutputKinds = { McpSessionJournal.Rc, McpSessionJournal.Server, McpSessionJournal.Nc, McpSessionJournal.Error };
 
     private static readonly string[] RcOutputKinds = { McpSessionJournal.Rc, McpSessionJournal.Server };

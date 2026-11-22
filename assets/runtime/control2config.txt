@@ -113,6 +113,7 @@ mcplogin=false
 mcpwindows=false
 mcpfullcontrol=false
 mcpapprove=true
+mcpbypass=false
 mcpaudit=true
 mcpapproveweapon=false
 mcpapproveclass=false

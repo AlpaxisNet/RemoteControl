@@ -125,12 +125,19 @@ internal sealed class McpToolContext
     }
 
     /// <summary>
-    /// Asks "Allow this MCP action?" while <c>mcpapprove</c> is on (or always, with <paramref name="always"/>). An answer that comes after
-    /// the bridge stopped does nothing: the request was given up.
+    /// Whether this call asks before it changes something (<c>mcpapprove</c> on, <c>mcpbypass</c> off). A tool that asked reads again what
+    /// it changes afterwards, since the user may have taken a while to answer; without a question there is nothing to read again.
+    /// </summary>
+    public bool AsksApproval => McpTools.AsksApproval(Options);
+
+    /// <summary>
+    /// Asks "Allow this MCP action?" while <c>mcpapprove</c> is on (or always, with <paramref name="always"/>); never while <c>mcpbypass</c>
+    /// is on. An answer that comes after the bridge stopped does nothing: the request was given up.
     /// </summary>
     /// <exception cref="McpDeniedException">The user denied it.</exception>
     public async Task ApproveAsync(string description, bool always = false)
     {
+        if (Options.McpBypass) return;
         if (!Options.McpApprove && !always) return;
         bool allowed = await Host.ApproveAsync(description + ForceNote).ConfigureAwait(true);
         Token.ThrowIfCancellationRequested();
@@ -185,14 +192,14 @@ internal sealed class McpToolContext
         return entry;
     }
 
-    /// <summary>Asks the script question while <c>mcpapprove</c> is on, unless the type was always allowed (never for a delete).</summary>
+    /// <summary>Asks the script question while <c>mcpapprove</c> is on and <c>mcpbypass</c> off, unless the type was always allowed (never for a delete).</summary>
     /// <param name="action">Write or delete.</param>
     /// <param name="type"><c>Weapon</c>, <c>Class</c> or <c>NPC</c>.</param>
     /// <param name="what">What is written, as the question shows it (the type's prefix is added).</param>
     /// <exception cref="McpDeniedException">The user denied it.</exception>
     public async Task ApproveScriptAsync(McpScriptAction action, string type, string what)
     {
-        if (!Options.McpApprove) return;
+        if (!AsksApproval) return;
         // A forced change may go without its backup: it is always asked, whatever was saved for the type.
         bool saved = action != McpScriptAction.Delete && !Args.Bool("force", false) && type switch
         {

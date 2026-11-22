@@ -49,6 +49,7 @@ internal sealed class McpRequestProcessor
     private readonly int _processId;
     private readonly Func<DateTimeOffset> _clock;
     private readonly McpToolServices _services;
+    private readonly string _deniedNote;
 
     /// <summary>Creates a processor.</summary>
     /// <param name="host">Runs host calls on the host's context.</param>
@@ -57,8 +58,11 @@ internal sealed class McpRequestProcessor
     /// <param name="processId">The process id reported to clients.</param>
     /// <param name="clock">The clock of the audit log.</param>
     /// <param name="services">What the server tools share (backups, the local folders); by default in a temporary folder.</param>
-    public McpRequestProcessor(IMcpHostInvoker host, Func<RcOptions> options, Action<string> saveScriptTypeApproval, int processId, Func<DateTimeOffset>? clock = null, McpToolServices? services = null)
+    /// <param name="deniedNote">Why an approval may be denied without anyone asked (a headless program), added to the denial's message; or empty.</param>
+    public McpRequestProcessor(IMcpHostInvoker host, Func<RcOptions> options, Action<string> saveScriptTypeApproval, int processId, Func<DateTimeOffset>? clock = null, McpToolServices? services = null,
+        string? deniedNote = null)
     {
+        _deniedNote = string.IsNullOrEmpty(deniedNote) ? string.Empty : ": " + deniedNote;
         _host = host;
         _options = options;
         _saveScriptTypeApproval = saveScriptTypeApproval;
@@ -183,7 +187,7 @@ internal sealed class McpRequestProcessor
         string? id = context.Id;
         string tool = context.Tool;
         RcOptions options = context.Options;
-        bool full = options.McpFullControl;
+        bool full = options.McpFullControl || options.McpBypass;
         bool canRead = full || options.McpRead;
         bool canWrite = full || options.McpWrite;
         bool canServer = full || options.McpServer;
@@ -227,7 +231,8 @@ internal sealed class McpRequestProcessor
                     foreach (string root in local.Roots) writer.WriteStringValue(JsonText.Clean(root));
                     writer.WriteEndArray();
                     writer.WriteString("backups", JsonText.Clean(_services.Backups.Root));
-                    writer.WriteBoolean("approvals", options.McpApprove);
+                    writer.WriteBoolean("approvals", McpTools.AsksApproval(options));
+                    writer.WriteBoolean("bypass", options.McpBypass);
                     writer.WriteEndObject();
                 });
                 return Ok(context, text);
@@ -483,14 +488,14 @@ internal sealed class McpRequestProcessor
 
     private async Task<bool> ApproveAsync(string description)
     {
-        if (!_options().McpApprove) return true;
+        if (!McpTools.AsksApproval(_options())) return true;
         return await _host.InvokeAsync(host => host.ApproveAsync(description)).ConfigureAwait(false);
     }
 
     private async Task<bool> ApproveScriptAsync(McpScriptAction action, string editor)
     {
         RcOptions options = _options();
-        if (!options.McpApprove) return true;
+        if (!McpTools.AsksApproval(options)) return true;
         string type = McpProtocol.ScriptTypeOf(editor);
         bool saved = type switch
         {
@@ -520,10 +525,10 @@ internal sealed class McpRequestProcessor
         return Response(context.Id, ToolResult(result.Success ? success : result.Error, !result.Success));
     }
 
-    private static string Denied(RequestContext context)
+    private string Denied(RequestContext context)
     {
         context.Audit("approval-denied");
-        return Error(context.Id, -32002, "Mutation denied by user");
+        return Error(context.Id, -32002, "Mutation denied by user" + _deniedNote);
     }
 
     private static string StringArray(IReadOnlyList<string> values) => JsonText.Write(writer =>

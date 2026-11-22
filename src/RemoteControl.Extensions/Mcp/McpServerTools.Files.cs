@@ -411,7 +411,7 @@ internal static partial class McpServerTools
         if (previous is not null && previous.AsSpan().SequenceEqual(content)) return Status(folder + name + " already has this content; nothing was sent.");
         await c.ApproveAsync("Upload " + folder + name + " to " + c.Server + " (" + content.Length + " bytes"
             + (unread ? ", replacing the file there, which could not be read, without a backup" : previous is null ? ", a new file" : ", replacing " + previous.Length + " bytes") + ")").ConfigureAwait(true);
-        if (c.Options.McpApprove && !unread)
+        if (c.AsksApproval && !unread)
         {
             // The question may have been open for a while: the upload must replace the file it was about (and that is backed up).
             FileBrowserEntry? now = await FindFileAsync(c, c.Target, folder, name).ConfigureAwait(true);
@@ -445,7 +445,7 @@ internal static partial class McpServerTools
         if (existing.Size > MaximumBackupBytes && !force)
             throw new McpToolException(folder + existing.Name + " has " + existing.Size + " bytes, more than a backup keeps (" + MaximumBackupBytes + "); give force: true to delete it without one.");
         await c.ApproveAsync("Delete " + folder + existing.Name + " (" + existing.Size + " bytes) on " + c.Server + (existing.Size > MaximumBackupBytes ? ", without a backup" : string.Empty)).ConfigureAwait(true);
-        if (c.Options.McpApprove)
+        if (c.AsksApproval)
         {
             // The question may have been open for a while: the file deleted must be the one it was about.
             FileBrowserEntry? now = await FindFileAsync(c, c.Target, folder, existing.Name).ConfigureAwait(true);
@@ -501,7 +501,7 @@ internal static partial class McpServerTools
             throw new McpToolException(destination + large.Name + " has " + large.Size + " bytes, more than a backup keeps; give force: true to replace it without one.");
         await c.ApproveAsync("Move " + folder + existing.Name + " to " + destination + finalName + " on " + c.Server
             + string.Concat(replaced.Select(entry => ", replacing " + destination + entry.Name + " (" + entry.Size + " bytes" + (entry.Size > MaximumBackupBytes ? ", without a backup" : string.Empty) + ")"))).ConfigureAwait(true);
-        if (c.Options.McpApprove)
+        if (c.AsksApproval)
         {
             // The question may have been open for a while: the files the move replaces must be the ones it named (none appeared since).
             List<FileBrowserEntry> now = await TakenAsync().ConfigureAwait(true);

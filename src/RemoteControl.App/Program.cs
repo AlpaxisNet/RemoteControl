@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using RemoteControl.Core;
 using RemoteControl.Extensions;
 using RemoteControl.Ui.Common;
@@ -22,7 +23,7 @@ public static partial class Program
     /// <summary>The process handlers installed first; the application replaces them with <see cref="UiErrors"/>.</summary>
     internal static IDisposable? EarlyHandlers { get; set; }
 
-    /// <summary>Starts the program: the MCP server on standard input and output with <c>--mcp</c>, the windows otherwise.</summary>
+    /// <summary>Starts the program: the MCP server on standard input and output with <c>--mcp</c>, the windows otherwise (none shown on the desktop with <c>--headless</c>).</summary>
     /// <param name="args">The command line.</param>
     /// <returns>The exit code.</returns>
     [STAThread]
@@ -68,6 +69,18 @@ public static partial class Program
     /// <returns>The builder.</returns>
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UsePlatformDetect().WithInterFont().WithBundledFonts().LogToTrace();
 
+    /// <summary>
+    /// The application of a headless run (<c>--headless</c>): Avalonia's screenless platform, on which every window of the program exists
+    /// and works (sessions, editors, the login form the MCP tools fill in) but none is shown on the desktop; no display is needed.
+    /// </summary>
+    /// <returns>The builder.</returns>
+    internal static AppBuilder BuildHeadlessApp() => AppBuilder.Configure<App>()
+        .UseSkia()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
+        .WithInterFont()
+        .WithBundledFonts()
+        .LogToTrace();
+
     private static int RunMcpServer(AppPaths paths, StartupArguments arguments)
     {
         // The options decide whether MCP is enabled; nothing else of the program is started, and no window.
@@ -78,13 +91,16 @@ public static partial class Program
 
     private static int RunWindows(StartupArguments arguments, CrashLog crashLog)
     {
-        if (arguments.Debug && OperatingSystem.IsWindows()) AttachParentConsole();
+        // A headless program has no window to show what happens: its log goes to standard error, as with --debug.
+        bool debug = arguments.Debug || arguments.Headless;
+        if (debug && OperatingSystem.IsWindows()) AttachParentConsole();
         Arguments = arguments;
-        Debug = new DebugOutput(Console.Error, arguments.Debug, arguments.PacketLog);
+        Debug = new DebugOutput(Console.Error, debug, arguments.PacketLog);
         Debug.Line("debug logging enabled");
         try
         {
-            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(arguments.Remaining.ToArray(), ShutdownMode.OnExplicitShutdown);
+            AppBuilder builder = arguments.Headless ? BuildHeadlessApp() : BuildAvaloniaApp();
+            return builder.StartWithClassicDesktopLifetime(arguments.Remaining.ToArray(), ShutdownMode.OnExplicitShutdown);
         }
         catch (Exception exception)
         {

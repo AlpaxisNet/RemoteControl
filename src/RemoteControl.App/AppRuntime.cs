@@ -62,6 +62,13 @@ internal sealed record AppRuntimeSettings
 
     /// <summary>Makes the extensions host (the program's default; tests give one with temporary folders).</summary>
     public Func<AppServices, IAppShell, ExtensionsHost>? Extensions { get; init; }
+
+    /// <summary>
+    /// Whether the program runs headless (<c>--headless</c>): no tray icon and no global hotkey are made (<see cref="Tray"/> and
+    /// <see cref="Hotkey"/> are not used), and MCP approvals are denied without a question unless <see cref="Approvals"/> is given
+    /// (<see cref="UnattendedApprovals"/>; <c>mcpbypass</c> skips them).
+    /// </summary>
+    public bool Headless { get; init; }
 }
 
 /// <summary>
@@ -167,7 +174,7 @@ internal sealed class AppRuntime
         IUiTimers timers = settings.Timers ?? DispatcherTimers.Instance;
         TrayController? tray = null;
         ITrayIcon? icon = null;
-        UiSafe.Run(() => icon = settings.Tray?.Invoke(services), "tray icon");
+        if (!settings.Headless) UiSafe.Run(() => icon = settings.Tray?.Invoke(services), "tray icon");
         if (icon is not null)
         {
             tray = new TrayController(shell, icon, timers);
@@ -176,14 +183,16 @@ internal sealed class AppRuntime
             shell.TrayShown = () => shown.IsShown;
         }
 
-        IHotkeyBackend backend = new NoHotkeyBackend("The program was started without a global hotkey.");
-        UiSafe.Run(() => backend = settings.Hotkey?.Invoke() ?? backend, "global hotkey");
+        IHotkeyBackend backend = new NoHotkeyBackend(settings.Headless ? "A headless program has no global hotkey." : "The program was started without a global hotkey.");
+        if (!settings.Headless) UiSafe.Run(() => backend = settings.Hotkey?.Invoke() ?? backend, "global hotkey");
         var hotkey = new HotkeyController(services, backend, shell.ToggleVisibility, settings.ShowHotkeyProblem);
         shell.Own(hotkey);
 
-        var mcpHost = new McpHost(shell, settings.Approvals ?? new DialogApprovals(services));
-        var mcp = new McpBridgeController(services, mcpHost, settings.McpTransport);
+        IMcpApprovals approvals = settings.Approvals ?? (settings.Headless ? new UnattendedApprovals(services.Log) : new DialogApprovals(services));
+        var mcpHost = new McpHost(shell, approvals);
+        var mcp = new McpBridgeController(services, mcpHost, settings.McpTransport, approvals is UnattendedApprovals ? UnattendedApprovals.Note : null);
         shell.Own(mcp);
+        if (settings.Headless) ReportHeadless(services);
 
         var runtime = new AppRuntime(services, problems, tools, shell, extensions, start, tray, hotkey, mcpHost, mcp);
         start.ShowLogin();
@@ -193,6 +202,17 @@ internal sealed class AppRuntime
             runtime.ProblemsShown = UiSafe.RunAsync(() => show(problems), "start-up problems");
         }
         return runtime;
+    }
+
+    /// <summary>What a headless program says at start: the MCP bridge is its only way in, and its approval questions cannot be answered.</summary>
+    private static void ReportHeadless(AppServices services)
+    {
+        RcOptions options = services.Options.Current;
+        services.Log.Info("Remote Control runs headless: no window is shown; MCP clients (RemoteControl --mcp) drive it. Stop it with Ctrl+C.");
+        if (!options.McpEnabled)
+            services.Log.Warn("MCP is switched off (mcpenabled=false in " + services.Paths.OptionsFile + "), so nothing can reach this headless program: switch it on.");
+        else if (options.McpApprove && !options.McpBypass)
+            services.Log.Warn("MCP approvals are on, and a headless program cannot ask them: every change an MCP client asks for is denied until mcpbypass=true (or mcpapprove=false) is set in " + services.Paths.OptionsFile + ".");
     }
 
     private static async Task ShowProblemsAsync(IReadOnlyList<string> problems)

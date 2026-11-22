@@ -298,6 +298,13 @@ public sealed partial record RcOptions
     /// <summary>Require approval for MCP mutations. Key <c>mcpapprove</c>.</summary>
     public bool McpApprove { get; init; } = true;
 
+    /// <summary>
+    /// Bypass every MCP permission: every tool is allowed (as with <see cref="McpFullControl"/>) and nothing is ever asked, not even what
+    /// <see cref="McpApprove"/> always asks (deleting a script, a ban in every world, a forced change). Backups, the audit log, the local
+    /// folders and the server scope still apply. Key <c>mcpbypass</c>.
+    /// </summary>
+    public bool McpBypass { get; init; } = false;
+
     /// <summary>Write the MCP audit log. Key <c>mcpaudit</c>.</summary>
     public bool McpAudit { get; init; } = true;
 
@@ -435,6 +442,7 @@ public sealed partial record RcOptions
         fields.Add(OptionField.Flag("mcpwindows", o => o.McpWindows, (o, v) => o with { McpWindows = v }));
         fields.Add(OptionField.Flag("mcpfullcontrol", o => o.McpFullControl, (o, v) => o with { McpFullControl = v }));
         fields.Add(OptionField.Flag("mcpapprove", o => o.McpApprove, (o, v) => o with { McpApprove = v }));
+        fields.Add(OptionField.Flag("mcpbypass", o => o.McpBypass, (o, v) => o with { McpBypass = v }));
         fields.Add(OptionField.Flag("mcpaudit", o => o.McpAudit, (o, v) => o with { McpAudit = v }));
         fields.Add(OptionField.Flag("mcpapproveweapon", o => o.McpApproveWeapon, (o, v) => o with { McpApproveWeapon = v }));
         fields.Add(OptionField.Flag("mcpapproveclass", o => o.McpApproveClass, (o, v) => o with { McpApproveClass = v }));

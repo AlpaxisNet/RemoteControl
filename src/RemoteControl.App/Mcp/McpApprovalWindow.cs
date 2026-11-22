@@ -138,3 +138,32 @@ internal sealed class DialogApprovals(AppServices services) : IMcpApprovals
         return always is null && answer == McpApproval.AlwaysAllow ? McpApproval.AllowOnce : answer;
     }
 }
+
+/// <summary>
+/// The approval questions of a headless program (<c>--headless</c>): no one can answer them, so each is denied at once and logged. The
+/// option <c>mcpbypass</c> (or <c>mcpapprove</c> off) lets MCP clients change things without a question.
+/// </summary>
+/// <param name="log">Where a denial is logged (standard error too, in a headless run).</param>
+internal sealed class UnattendedApprovals(Core.AppLog log) : IMcpApprovals
+{
+    /// <summary>What the MCP client reads with each denial.</summary>
+    public const string Note = "the program runs headless (--headless), where no one can answer approval questions; switch on mcpbypass in the options (Bypass all MCP permissions) to let MCP clients go ahead";
+
+    public Task<bool> ApproveAsync(string description)
+    {
+        Deny(description);
+        return Task.FromResult(false);
+    }
+
+    public Task<McpApproval> ApproveScriptAsync(McpScriptAction action, string editor, string scriptType)
+    {
+        Deny(action + " " + editor);
+        return Task.FromResult(McpApproval.Deny);
+    }
+
+    private void Deny(string what)
+    {
+        string first = (what ?? string.Empty).Split('\n', 2)[0];
+        log.Warn("An MCP action that needs approval was denied, as " + Note + ": " + first);
+    }
+}

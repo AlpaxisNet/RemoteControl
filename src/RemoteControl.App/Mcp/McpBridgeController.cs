@@ -20,7 +20,8 @@ internal sealed class McpBridgeController : IDisposable
     /// <param name="services">The program's services.</param>
     /// <param name="host">What the tools do.</param>
     /// <param name="transport">Where to listen (the C++ names by default; tests give temporary ones).</param>
-    public McpBridgeController(AppServices services, IMcpHost host, McpTransportOptions? transport = null)
+    /// <param name="deniedNote">Why approvals are denied without a question (a headless program), for the clients; or null.</param>
+    public McpBridgeController(AppServices services, IMcpHost host, McpTransportOptions? transport = null, string? deniedNote = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         ArgumentNullException.ThrowIfNull(host);
@@ -36,6 +37,7 @@ internal sealed class McpBridgeController : IDisposable
             ScriptApiCacheFile = Path.Combine(services.Paths.EditorCacheDirectory, "scriptapi.json"),
             Transport = transport ?? new McpTransportOptions(),
             Log = services.Log,
+            DeniedNote = deniedNote,
         };
         _optionsChanged = (_, e) =>
         {

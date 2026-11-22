@@ -1,7 +1,9 @@
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using RemoteControl.App.Hotkeys;
 using RemoteControl.App.Platform;
 using RemoteControl.App.Tray;
@@ -10,10 +12,15 @@ using RemoteControl.Ui.Common;
 
 namespace RemoteControl.App;
 
-/// <summary>The application: the Fluent theme and the AvaloniaEdit styles; it puts the program together and shows the login window.</summary>
+/// <summary>
+/// The application: the Fluent theme and the AvaloniaEdit styles; it puts the program together and shows the login window. Headless
+/// (<c>--headless</c>), on Avalonia's screenless platform, it shows nothing on the desktop: no dialog waits for an answer, no browser,
+/// sound or file manager is started, and Ctrl+C or a termination signal ends the program.
+/// </summary>
 public sealed class App : Application
 {
     private AppRuntime? _runtime;
+    private readonly List<PosixSignalRegistration> _signals = new();
 
     /// <inheritdoc />
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -24,6 +31,14 @@ public sealed class App : Application
         base.OnFrameworkInitializationCompleted();
         if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        bool headless = Program.Arguments.Headless;
+        if (headless)
+        {
+            // Nothing can be answered or looked at: dialogs only log, error windows are not made, no program is started on a desktop.
+            Dialogs.Unattended = true;
+            UiSafe.ShowErrorWindows = false;
+            ExternalPrograms.Disabled = true;
+        }
         try
         {
             AppPaths paths = AppPaths.ForCurrentUser();
@@ -35,9 +50,11 @@ public sealed class App : Application
                 Hotkey = CreateHotkeyBackend,
                 Debug = Program.Debug,
                 InstallErrorHandlers = true,
+                Headless = headless,
             });
+            if (headless) StopOnSignals(_runtime.Shell, desktop);
             // Avalonia 11 takes no files dropped from a file manager on X11; the bridge does (FileDrop).
-            if (OperatingSystem.IsLinux()) FileDrop.Bridge = new X11FileDropBridge(_runtime.Services.Log);
+            else if (OperatingSystem.IsLinux()) FileDrop.Bridge = new X11FileDropBridge(_runtime.Services.Log);
             // The application's handlers (UiErrors) now write the crash log; the early ones would write every report twice.
             Program.EarlyHandlers?.Dispose();
             Program.EarlyHandlers = null;
@@ -53,6 +70,32 @@ public sealed class App : Application
                 desktop.Shutdown(1);
             }, "start-up failure");
         }
+    }
+
+    /// <summary>Ends a headless program on Ctrl+C or a termination signal, as quitting from the tray would, without the unsaved-editors question.</summary>
+    private void StopOnSignals(AppShell shell, IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        void Stop(PosixSignalContext context)
+        {
+            context.Cancel = true;
+            Dispatcher.UIThread.Post(() => UiSafe.Run(shell.QuitWithoutAsking, "headless stop"));
+        }
+        foreach (PosixSignal signal in new[] { PosixSignal.SIGINT, PosixSignal.SIGTERM })
+        {
+            try
+            {
+                _signals.Add(PosixSignalRegistration.Create(signal, Stop));
+            }
+            catch (Exception exception) when (exception is PlatformNotSupportedException or IOException)
+            {
+                UiSafe.Log.Warn("The headless program does not stop on " + signal + ".", exception);
+            }
+        }
+        desktop.Exit += (_, _) =>
+        {
+            foreach (PosixSignalRegistration registration in _signals) registration.Dispose();
+            _signals.Clear();
+        };
     }
 
     private ITrayIcon? CreateTray(AppServices services)
