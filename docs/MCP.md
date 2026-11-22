@@ -26,6 +26,21 @@ It is off until you switch it on, and every change can be made to wait for your 
 Nothing listens on the network: the `--mcp` process talks to the program over a socket (a named pipe on Windows) only your user can
 open.
 
+## Without a desktop
+
+`RemoteControl --headless` runs the program with no window, tray icon or hotkey, and needs no display: every window still exists and
+works (the login form, the sessions, the script editors), only nothing is shown. MCP clients drive it as above (`rc_login_status`,
+`rc_submit_login` with an account whose password is saved, `rc_connect_server`, then the server tools). Its log goes to standard error,
+as with `--debug`; Ctrl+C or a termination signal ends it.
+
+- Switch MCP on in the options file first (`mcpenabled=true` in `control2config.txt`): without it nothing can reach the program, and
+  it says so when it starts.
+- No one is there to answer an approval, so every question is denied, with a message that says why. Set `mcpbypass=true` (or
+  `mcpapprove=false`) for MCP clients to change things.
+- A dialog the program would show is logged instead and answered with Cancel; no browser, sound or file manager is started.
+- Avalonia's screenless platform redraws 60 times a second even when nothing changes, so the idle program uses a little processor time
+  (about an eighth of one processor core where it was measured).
+
 ## Permissions and safety
 
 | Option | Tools |
@@ -37,10 +52,17 @@ open.
 | **Allow window and UI control** (`mcpwindows`) | opening windows and script editors, selecting the session |
 | **Allow administrative actions** (`mcpadmin`) | accounts, rights, attributes, comments, profiles, bans, server options, flags and folder configuration, raw packets |
 | **Full native RC control** (`mcpfullcontrol`) | all of the above |
+| **Bypass all MCP permissions** (`mcpbypass`) | all of the above, and nothing is ever asked (below) |
 
 - **Require approval for mutations** (`mcpapprove`, on by default) asks you before every change, with what it will do: a command,
   message or text is shown whole, every line of it. Scripts have "Always allow Weapon/Class/NPC scripts"; deleting a script is asked
   every time. A ban on every server of the network (`world: all`) is asked every time, even with approvals off.
+- **Commands that only answer** run through `rc_command` without a question: one line of `/find`, `/help`, `/version`, `/credits`,
+  `/stats`, `/optionshelp`, `/playerinfo`, `/scripthelp` or `/scriptscan` (RC or the program's chat field). Several lines, NC chat,
+  and every other command are asked as before; the `/open…` commands are too, since the program shows their answers in windows.
+- **Bypass all MCP permissions** (`mcpbypass`, off by default) lets an MCP client use every tool and asks nothing, not even what
+  approvals ask every time (deleting a script, a ban on every server, a forced change). Backups, the audit log, the local folders and
+  the server scope still apply. Use it when you trust the agent with everything the account may do, or for a headless program.
 - **Allowed server scope** (`mcpserverscope`) limits every tool to one server.
 - **The audit log** (`mcpaudit`) records every request with its outcome (Options → MCP → View audit log).
 - **Backups.** Before a tool overwrites or deletes anything on a server (a script, a file, a server text, NPC flags, a player's
@@ -86,7 +108,9 @@ open.
 - **The MCP's own file-browser view.** Listings and transfers of the tools never move the file browser window, the sync or a backup.
 - **Quiet answers.** The windows of the program open a dialog for every account, rights, ban or level-NPC answer the server sends; the
   answers a tool asked for are claimed first, so reading a hundred players opens no window and leaves an Edit Access window you are
-  working in as it is.
+  working in as it is. The server's level-NPC dump, NPC attributes and ban answers do not say what they are about, so they go to the
+  requests in order; a request the server never answers (a level it has not loaded) is passed by after 30 seconds, so that the next
+  answers are not taken for it (and shown in a window) any more.
 - **Fresh lists.** The NC tells the program its weapons when it connects, not when one is added or deleted: before a weapon counts as
   new (or after one was deleted) a tool asks for the weapon list again.
 - **Moves.** `rc_move_file` moves first and renames in the new folder; it refuses to replace a file of either name it takes (names

@@ -27,7 +27,7 @@ Remote Control (RC) is the staff tool of Graal Online style game servers. This o
 [GScript.RClib](https://github.com/MorenoLand/GScript.RClib). The windows, the options and the files are the ones its users know;
 what changed is underneath:
 
-- **One program, nothing to install.** .NET 8 and Avalonia instead of GTK3: a single executable with .NET inside, for Windows and
+- **One program, nothing to install.** .NET 11 and Avalonia instead of GTK3: a single executable with .NET inside, for Windows and
   Linux, that signs in to several servers at once.
 - **Built not to crash.** The C++ crashed at random, and a review found why: network sends without a lock, events delivered to
   windows that were gone, a connection used after it was freed, packets trusted to be well formed, slow work on the
@@ -93,11 +93,12 @@ tray icon (the session stays signed in) and asks before signing out when there i
 | **Import Missing** | Files → Import Missing (also a button in the file browser) asks the server which files its levels, NPCs, weapons, classes and animations name and it does not have, together with the server folder each belongs in, looks for files of those names under a folder of your computer (such as your UGD) in every subfolder, and lists them: the kind of file, where it is used, the server's folder, the local file and why a row is not ticked. Where several local files have the name, the one in a folder named like the kind (`heads`, `images`, ...) is chosen and "Other file..." picks another. After you confirm how many files and how many bytes go to which server, the ticked files are uploaded one after the other, each with the server's answer in its row. It needs a game server that knows the request (the server answers "searching" at once; a server that gives no answer of any kind within 60 seconds is taken not to know it, and the window says so; after "searching" it waits for the result however long the search takes, until you click Cancel or the connection ends), the right to update levels, and a folder right with `w` for each folder it uploads into (a right that ends in a slash, such as `rw world/heads/`, covers every file of that folder; a server that names no upload limit is not checked against one). Only one request runs at a time for a connection. It uploads only what you ticked and confirmed, and only files the server reported missing when it was asked: a file of that name that appeared on the server in the meantime would be replaced. If the server does not answer three uploads in a row, the run is ended and the window says so. It guesses no name that a script builds while it runs (`"head" @ id @ ".png"`): the server leaves those out, so they are not listed. While Import Missing searches or uploads, a server backup and a sync started by hand are refused with a sentence (and Import Missing is refused while one runs): a backup shares Import Missing's view of the file transfer, and a sync shares the one folder the server keeps for the connection. A sync that starts by itself (the option `syncenabled`) uses its own view and changes the folder before every transfer, and Import Missing takes a message of the server only when it names the file and folder it just sent, so such a pass may run beside it. The folder you searched is remembered in the option `importmissingfolder` |
 | **Sync and git backups** | keeps a local folder and the server's files, scripts and configuration in step, one way or both, with exclusions, conflicts that lose nothing, deletions only with permission, and git commits and pushes |
 | **Extensions** | packages in an `extensions` folder that run beside the program and talk to it in JSON lines ([docs/EXTENSIONS.md](docs/EXTENSIONS.md)) |
-| **MCP** | `RemoteControl --mcp` is an MCP server over standard input and output through which an agent does what a user does, on every server the program is signed in to: weapons, classes and NPCs read, searched, checked and written; server files edited raw; players, accounts, rights and bans; messages, RC and NC commands; server options, flags and folders; scripts and files copied from one server to another, or exported into a local folder and imported back. Every change can wait for your approval and leaves a backup of what it replaced; the GS2 reference (GScript.GS2Taco) and the script API of api.gscript.dev are built in. Off until you switch it on ([docs/MCP.md](docs/MCP.md)) |
+| **MCP** | `RemoteControl --mcp` is an MCP server over standard input and output through which an agent does what a user does, on every server the program is signed in to: weapons, classes and NPCs read, searched, checked and written; server files edited raw; players, accounts, rights and bans; messages, RC and NC commands; server options, flags and folders; scripts and files copied from one server to another, or exported into a local folder and imported back. Every change can wait for your approval (or, with the option `mcpbypass`, none does) and leaves a backup of what it replaced; the GS2 reference (GScript.GS2Taco) and the script API of api.gscript.dev are built in. Off until you switch it on ([docs/MCP.md](docs/MCP.md)) |
 | **Looks** | thirteen themes, the classic picture header with your own pictures and background (animated WebP and GIF too), colours and fonts in the options |
 
 Command line: `--debug` prints the program's log to standard error, `--packetlog` also prints every packet, `--mcp`
-(`--mcp-instance N`) runs the MCP server.
+(`--mcp-instance N`) runs the MCP server, `--headless` runs the program with no window on the desktop and no display needed, for
+MCP clients to drive ([docs/MCP.md](docs/MCP.md#without-a-desktop)).
 
 ## Your files
 
@@ -118,7 +119,7 @@ A file the program cannot read is never overwritten: it is kept, and you are tol
 
 ## Build and test
 
-You need the .NET 8 SDK and nothing else.
+You need the .NET 11 SDK and nothing else.
 
 | | Command |
 | --- | --- |
@@ -182,8 +183,10 @@ On purpose:
 - HTML in private messages is shown as text; nothing is ever loaded from the network for a message.
 - On Windows the options, logs and message history moved from the program's folder to the user folder (the old options file is
   read once and copied).
-- With the Alpaxis servers in mind: NC lists (class scripts, NPC flags, levels) are sent one line per string, a frame is at most
-  32767 bytes (a larger one is refused with a message, never cut), uploads go in pieces of 32000 bytes.
+- With the Alpaxis servers in mind: class scripts and NPC flags are sent one line per string while every line fits in one (223
+  bytes); one with a longer line is sent as comma text made so that the server cannot take it for strings, which an Alpaxis server
+  that reads both forms tells apart without a guess (an older one cannot take such a line at all). The level list is that comma text
+  too. A frame is at most 32767 bytes (a larger one is refused with a message, never cut), uploads go in pieces of 32000 bytes.
 
 Not there yet:
 

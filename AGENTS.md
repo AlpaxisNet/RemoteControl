@@ -1,7 +1,7 @@
 # Remote Control (C#): guide for contributors and agents
 
 Remote Control is a staff tool for Graal Online style game servers: the RC chat, the player list, accounts and rights, bans, private
-messages, the file browser, sync, and script editing over the NPC-Control (NC) connection. It is written in C# on .NET 8 with
+messages, the file browser, sync, and script editing over the NPC-Control (NC) connection. It is written in C# on .NET 11 with
 Avalonia. It was rewritten in November 2026 from a C++20/GTK3 program and the C library RClib, which crashed at random; that code
 is at [MorenoLand/GScript.RemoteControl](https://github.com/MorenoLand/GScript.RemoteControl) (commit `6b73e05`) and
 [MorenoLand/GScript.RClib](https://github.com/MorenoLand/GScript.RClib), and is the reference for behaviour where a comment names
@@ -55,7 +55,7 @@ The C++ crashed because of what these rules forbid; they are not style.
 
 ## Conventions
 
-- C# 12, nullable enabled, warnings are errors, file-scoped namespaces, four spaces. Public types and members of `Protocol` and
+- C# 15, nullable enabled, warnings are errors, file-scoped namespaces, four spaces. Public types and members of `Protocol` and
   `Core` have XML doc comments in plain English.
 - No `TODO`, no stub, no `NotImplementedException` in finished work. What is deliberately left out is written down in `README.md`.
 - Windows are Avalonia XAML with code-behind; a list a window shows is an `ObservableCollection` of a small view-model class.
@@ -100,5 +100,11 @@ Expected: 0 warnings, every test passes (two tests that need a real network are 
   wait with a time limit). It returns JSON text or throws `McpToolException` (a tool error the client reads) or `McpDeniedException`.
 - A tool that changes something asks `ApproveAsync` (or `ApproveScriptAsync`) first, and keeps the old version with the
   `McpBackupStore` before it overwrites or deletes. Listings and transfers go through the session's `McpFileBrowser`, never the windows'.
+- Every question goes through `ApproveAsync`/`ApproveScriptAsync`, which `mcpbypass` skips; a tool that reads again what it changes
+  after the question checks `AsksApproval`, not `mcpapprove`. A server answer a tool waits for, which a window would show by itself,
+  is claimed first (`Claim`), so that a tool opens no window.
+- The program also runs headless (`--headless`, Avalonia's screenless platform): every window exists but no one sees it. Dialogs then
+  only log and return their cancel answer (`Dialogs.Unattended`), approvals are denied (`UnattendedApprovals`), and no tray, hotkey or
+  external program is started. Code an MCP tool reaches must never wait for a click.
 - A new tool is one `Tool(...)` entry in `McpToolCatalog.cs` and a method; tests drive it through the bridge against `FakeRcSession`
   (`McpServerToolsTests`). [docs/MCP.md](docs/MCP.md) lists every tool.
