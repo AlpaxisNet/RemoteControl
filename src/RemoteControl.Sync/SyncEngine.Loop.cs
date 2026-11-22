@@ -128,7 +128,7 @@ public sealed partial class SyncEngine
     }
 
     private bool IsIdle() =>
-        !_pullRequested && !_pushRequested && !_fullRescan && _dirtyPaths.Count == 0 && _scriptArrivals.Count == 0 && _configArrivals.Count == 0
+        !_pullRequested && !_pushRequested && !_fullRescan && _dirtyPaths.Count == 0 && _settlingPaths.Count == 0 && _scriptArrivals.Count == 0 && _configArrivals.Count == 0
         && _missingWatch.Count == 0 && _confirmedDeletions.Count == 0;
 
     private void CompleteIdleWaiters()
@@ -159,6 +159,7 @@ public sealed partial class SyncEngine
                 }
 
                 await DrainArrivalsAsync(run);
+                PromoteSettledPaths();
                 if (_pushRequested || _fullRescan || _dirtyPaths.Count > 0 || _confirmedDeletions.Count > 0)
                 {
                     bool forced = _pushForced;
@@ -224,9 +225,16 @@ public sealed partial class SyncEngine
     {
         var wake = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _wake = wake;
+        // A file that settles before the next tick is read when it does.
+        TimeSpan delay = _options.TickInterval;
+        if (_settlingPaths.Count > 0)
+        {
+            TimeSpan due = _settlingPaths.Values.Min() + _options.WatchSettleDelay - DateTime.UtcNow;
+            if (due < delay) delay = due > TimeSpan.Zero ? due : TimeSpan.Zero;
+        }
         try
         {
-            await Task.WhenAny(wake.Task, Task.Delay(_options.TickInterval, run.Token));
+            await Task.WhenAny(wake.Task, Task.Delay(delay, run.Token));
         }
         finally
         {
@@ -234,6 +242,19 @@ public sealed partial class SyncEngine
         }
 
         run.Token.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>Makes dirty the files the watcher reported that nothing changed for <see cref="SyncEngineOptions.WatchSettleDelay"/>.</summary>
+    private void PromoteSettledPaths()
+    {
+        if (_settlingPaths.Count == 0) return;
+        DateTime now = DateTime.UtcNow;
+        foreach ((string path, DateTime last) in _settlingPaths.ToArray())
+        {
+            if (now - last < _options.WatchSettleDelay) continue;
+            _settlingPaths.Remove(path);
+            _dirtyPaths.Add(path);
+        }
     }
 
     private void Tick()
@@ -463,7 +484,8 @@ public sealed partial class SyncEngine
                 return;
             }
 
-            if (_dirtyPaths.Count < 10000) _dirtyPaths.Add(relative);
+            // Read once it settled: an editor that empties the file and writes it again is not caught in between.
+            if (_settlingPaths.Count < 10000) _settlingPaths[relative] = DateTime.UtcNow;
             else _fullRescan = true;
             Wake();
         });

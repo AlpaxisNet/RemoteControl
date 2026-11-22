@@ -75,6 +75,8 @@ public sealed partial class SyncEngine : IDisposable, IAsyncDisposable
     private DateTime _nextPull;
     private DateTime _nextRescan;
     private readonly HashSet<string> _dirtyPaths = new(PathComparer);
+    /// <summary>The files the watcher reported, with the time of their last event: they become dirty once they settled (<see cref="SyncEngineOptions.WatchSettleDelay"/>).</summary>
+    private readonly Dictionary<string, DateTime> _settlingPaths = new(PathComparer);
     private readonly HashSet<string> _missingWatch = new(StringComparer.Ordinal);
     private readonly HashSet<string> _confirmedDeletions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ScriptReceivedEventArgs> _scriptArrivals = new(StringComparer.Ordinal);

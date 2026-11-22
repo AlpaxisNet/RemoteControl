@@ -186,6 +186,24 @@ public sealed class EngineTests
     }
 
     [Fact]
+    public async Task AFileTheWatcherSeesWhileItIsWrittenIsUploadedOnceItIsQuiet()
+    {
+        await using SyncHarness harness = await SyncHarness.CreateAsync(new SyncSettings { Direction = SyncDirection.TwoWay }, StandardServer(),
+            configure: options => options with { WatchFileSystem = true, WatchSettleDelay = TimeSpan.FromSeconds(1) });
+        harness.Engine.Start();
+        await harness.WaitUntilAsync(() => File.Exists(harness.Local(UtilPath)), "the first pull");
+        await harness.IdleAsync();
+        // An editor that saves by emptying the file and writing it again: the empty class must never go to the server (it would delete it).
+        File.WriteAllText(harness.Local(UtilPath), string.Empty);
+        await Task.Delay(100);
+        File.WriteAllText(harness.Local(UtilPath), "//written");
+        await harness.WaitUntilAsync(() => harness.Session.WasCalled(nameof(IRcSession.UpdateClassAsync)), "the upload of the written file");
+        await harness.IdleAsync();
+        RecordedCall upload = Assert.Single(harness.Session.CallsTo(nameof(IRcSession.UpdateClassAsync)));
+        Assert.Equal(new object?[] { "Util", "//written" }, upload.Arguments);
+    }
+
+    [Fact]
     public async Task ScriptTimesComeFromTheServerFolders()
     {
         FakeServer server = StandardServer();

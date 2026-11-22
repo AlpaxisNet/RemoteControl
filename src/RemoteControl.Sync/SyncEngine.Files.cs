@@ -232,6 +232,7 @@ public sealed partial class SyncEngine
             {
                 run.Token.ThrowIfCancellationRequested();
                 await DrainArrivalsAsync(run);
+                PromoteSettledPaths();
                 if (_dirtyPaths.Count > 0) await PushPassAsync(run, forced: false, onlyDirty: true);
                 _queuedFolders = pass.Folders.Count;
                 _queuedDownloads = pass.Downloads.Count;

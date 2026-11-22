@@ -74,4 +74,10 @@ public sealed record SyncEngineOptions
 
     /// <summary>Whether a file-system watcher reports local edits between rescans.</summary>
     public bool WatchFileSystem { get; init; } = true;
+
+    /// <summary>
+    /// How long a file the watcher reported must stay unchanged before it is read and uploaded. Many editors save by emptying the file
+    /// and writing it again: read in between, an empty class would be uploaded, and the server deletes an empty class.
+    /// </summary>
+    public TimeSpan WatchSettleDelay { get; init; } = TimeSpan.FromMilliseconds(500);
 }

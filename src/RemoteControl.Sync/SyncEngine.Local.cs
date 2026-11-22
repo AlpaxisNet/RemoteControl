@@ -22,7 +22,8 @@ public sealed partial class SyncEngine
         var candidates = new List<TrackedItem>();
         if (full)
         {
-            candidates.AddRange(AllItems());
+            // A file still being written is read when it settled, not by the rescan that happens to come meanwhile.
+            candidates.AddRange(AllItems().Where(item => !_settlingPaths.ContainsKey(item.Path)));
         }
         else
         {
