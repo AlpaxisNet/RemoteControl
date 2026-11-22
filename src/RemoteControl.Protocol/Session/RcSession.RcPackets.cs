@@ -12,7 +12,7 @@ public sealed partial class RcSession
     private List<string> _pmServers = new();
     private List<string> _pmGuilds = new();
     private List<SimpleServerEntry> _gameServers = new();
-    private readonly Queue<string> _pendingBanAccounts = new();
+    private readonly PendingRequests<string> _pendingBanAccounts = new();
     private bool _clientRcRequested;
     private string _serverOptions = string.Empty;
     private string _serverFlags = string.Empty;
@@ -435,7 +435,7 @@ public sealed partial class RcSession
 
     private void HandleLegacyBan(PacketReader reader)
     {
-        string account = _pendingBanAccounts.Count > 0 ? _pendingBanAccounts.Dequeue() : string.Empty;
+        string account = _pendingBanAccounts.Take(string.Empty);
         string details = string.Empty;
         if (!reader.AtEnd)
         {
@@ -602,7 +602,7 @@ public sealed partial class RcSession
         {
             case "ban":
             {
-                string pending = _pendingBanAccounts.Count > 0 ? _pendingBanAccounts.Dequeue() : string.Empty;
+                string pending = _pendingBanAccounts.Take(string.Empty);
                 string account = parts.Count > 3 ? parts[3] : pending;
                 string computerId = parts.Count > 4 ? parts[4] : string.Empty;
                 string details = parts.Count > 5 ? string.Join('\n', parts.Skip(5)) : string.Empty;

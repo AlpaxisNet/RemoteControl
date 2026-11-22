@@ -11,8 +11,8 @@ public sealed partial class RcSession
     private readonly List<RcNpc> _npcs = new();
     private List<RcLevel> _levels = new();
     private readonly Dictionary<int, string> _npcFlags = new();
-    private readonly Queue<int> _pendingNpcAttributes = new();
-    private readonly Queue<string> _pendingLocalNpcs = new();
+    private readonly PendingRequests<int> _pendingNpcAttributes = new();
+    private readonly PendingRequests<string> _pendingLocalNpcs = new();
     private int _levelListRequests;
 
     /// <inheritdoc />
@@ -246,7 +246,7 @@ public sealed partial class RcSession
                 }
                 else
                 {
-                    string level = _pendingLocalNpcs.Count > 0 ? _pendingLocalNpcs.Dequeue() : string.Empty;
+                    string level = _pendingLocalNpcs.Take(string.Empty);
                     Raise(LocalNpcsReceived, new LocalNpcsEventArgs(level, text));
                 }
 
@@ -266,7 +266,7 @@ public sealed partial class RcSession
             case ServerPacketId.NcNpcAttributes:
             {
                 if (reader.AtEnd) break;
-                int npcId = _pendingNpcAttributes.Count > 0 ? _pendingNpcAttributes.Dequeue() : -1;
+                int npcId = _pendingNpcAttributes.Take(-1);
                 Raise(NpcAttributesReceived, new NpcTextEventArgs(npcId, reader.ReadRemainingCommaText()));
                 break;
             }

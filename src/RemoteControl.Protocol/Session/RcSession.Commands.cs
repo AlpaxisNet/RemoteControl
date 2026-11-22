@@ -66,10 +66,13 @@ public sealed partial class RcSession
         return await open.ConfigureAwait(false) & await sent.ConfigureAwait(false);
     }
 
-    private Task<bool> SendWithPending<T>(Queue<T> queue, T item, Func<Task<bool>> send) => Run(() =>
+    private Task<bool> SendWithPending<T>(PendingRequests<T> pending, T item, Func<Task<bool>> send) => Run(async () =>
     {
-        queue.Enqueue(item);
-        return send();
+        object entry = pending.Add(item);
+        bool sent = await send().ConfigureAwait(false);
+        // A request that did not go out gets no answer: left waiting, it would be given the answer of the next one.
+        if (!sent) await OnContextAsync(() => pending.Remove(entry)).ConfigureAwait(false);
+        return sent;
     }, false);
 
     // ---- Chat and messages -------------------------------------------------------------------------------------------------
