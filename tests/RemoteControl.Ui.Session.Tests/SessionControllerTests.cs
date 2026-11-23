@@ -189,6 +189,45 @@ public sealed class SessionControllerTests
     }
 
     [AvaloniaFact]
+    public void A_nc_that_keeps_dropping_soon_after_it_connects_is_retried_after_longer_waits()
+    {
+        (TestSession test, SessionController controller, Clock clock) = Start();
+        using (test)
+        using (controller)
+        {
+            test.Fake.NcServerAddress = "127.0.0.1,14901";
+            controller.Tick();
+            controller.Tick();
+            Assert.Single(test.Fake.CallsTo("ConnectNcAsync"));
+
+            // First drop: the usual one second.
+            test.Fake.RaiseNcDisconnected("gone");
+            clock.Advance(SessionController.NcReconnectDelay);
+            controller.Tick();
+            Assert.Equal(2, test.Fake.CallsTo("ConnectNcAsync").Count);
+            controller.Tick();
+
+            // Second drop right after the reconnect: five seconds, not one.
+            test.Fake.RaiseNcDisconnected("gone again");
+            clock.Advance(SessionController.NcReconnectDelay);
+            controller.Tick();
+            Assert.Equal(2, test.Fake.CallsTo("ConnectNcAsync").Count);
+            clock.Advance(TimeSpan.FromSeconds(4));
+            controller.Tick();
+            Assert.Equal(3, test.Fake.CallsTo("ConnectNcAsync").Count);
+            controller.Tick();
+
+            // A connection that stays up for a minute starts the series again.
+            clock.Advance(SessionController.NcStableAfter);
+            controller.Tick();
+            test.Fake.RaiseNcDisconnected("gone later");
+            clock.Advance(SessionController.NcReconnectDelay);
+            controller.Tick();
+            Assert.Equal(4, test.Fake.CallsTo("ConnectNcAsync").Count);
+        }
+    }
+
+    [AvaloniaFact]
     public void Without_auto_reconnect_a_dropped_nc_stays_down()
     {
         (TestSession test, SessionController controller, Clock clock) = Start(o => o with { AutoReconnectNc = false });

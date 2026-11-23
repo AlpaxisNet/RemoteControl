@@ -27,6 +27,12 @@ internal sealed class SessionController : IDisposable
     /// <summary>How long after the NC dropped it is connected again.</summary>
     public static readonly TimeSpan NcReconnectDelay = TimeSpan.FromSeconds(1);
 
+    /// <summary>How long an NC connection must stay up before a drop counts as a fresh one rather than another in a quick series.</summary>
+    public static readonly TimeSpan NcStableAfter = TimeSpan.FromSeconds(60);
+
+    /// <summary>The wait before the automatic reconnect after the first, second, third and later drops in a quick series.</summary>
+    private static readonly TimeSpan[] s_ncBackoff = [NcReconnectDelay, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60)];
+
     /// <summary>The time between two attempts while the NC cannot be reached.</summary>
     public static readonly TimeSpan NcRetryInterval = TimeSpan.FromSeconds(5);
 
@@ -57,6 +63,8 @@ internal sealed class SessionController : IDisposable
     private bool _ncConnecting;
     private bool _lastNcActive;
     private DateTimeOffset? _nextNcAttempt;
+    private DateTimeOffset? _ncAuthenticatedSince;
+    private int _ncQuickDrops;
     private bool _awayApplied;
     private DateTimeOffset _awayActivity;
     private bool? _ownClientConnected;
@@ -170,6 +178,8 @@ internal sealed class SessionController : IDisposable
         _ncManuallyDisconnected = false;
         _ncWasAuthenticated = false;
         _ncRetrying = false;
+        _ncQuickDrops = 0;
+        _ncAuthenticatedSince = null;
         if (session.IsNcConnected) session.DisconnectNc();
         _ncAttempted = true;
         _nextNcAttempt = now;
@@ -192,6 +202,8 @@ internal sealed class SessionController : IDisposable
         _nextNcAttempt = null;
         _ncWasAuthenticated = false;
         _ncRetrying = false;
+        _ncQuickDrops = 0;
+        _ncAuthenticatedSince = null;
         if (!session.DisconnectNc()) RaiseChatLine(string.IsNullOrEmpty(session.LastError) ? "The NPC server is not connected." : session.LastError!);
         _ncAttempted = true;
         RaiseStateChanged();
@@ -249,6 +261,8 @@ internal sealed class SessionController : IDisposable
         _ncManuallyDisconnected = false;
         _ncWasAuthenticated = false;
         _ncRetrying = false;
+        _ncQuickDrops = 0;
+        _ncAuthenticatedSince = null;
         _ncConnecting = false;
         _nextNcAttempt = null;
         _ownClientConnected = null;
@@ -340,11 +354,25 @@ internal sealed class SessionController : IDisposable
         }
     }
 
+    /// <summary>
+    /// The wait before the automatic NC reconnect after a drop. A connection that stayed up for <see cref="NcStableAfter"/> starts the
+    /// series again at one second; a drop soon after the last reconnect waits longer each time (1, 5, 30, then 60 seconds), so a server
+    /// that keeps sending something the connection cannot read is not asked again every second.
+    /// </summary>
+    private TimeSpan NcDelayAfterDrop(DateTimeOffset now)
+    {
+        bool stable = _ncAuthenticatedSince is { } since && now - since >= NcStableAfter;
+        _ncQuickDrops = stable ? 0 : _ncQuickDrops + 1;
+        _ncAuthenticatedSince = null;
+        return s_ncBackoff[Math.Clamp(_ncQuickDrops - 1, 0, s_ncBackoff.Length - 1)];
+    }
+
     private void OnNcDisconnected(IRcSession session)
     {
         if (_ncWasAuthenticated && !_ncManuallyDisconnected && _context.App.Options.Current.AutoReconnectNc)
         {
-            _nextNcAttempt = _clock() + NcReconnectDelay;
+            DateTimeOffset now = _clock();
+            _nextNcAttempt = now + NcDelayAfterDrop(now);
             _ncRetrying = true;
         }
         _ncWasAuthenticated = false;
@@ -442,6 +470,7 @@ internal sealed class SessionController : IDisposable
         if (session.IsNcAuthenticated)
         {
             _ncWasAuthenticated = true;
+            _ncAuthenticatedSince ??= now;
             _nextNcAttempt = null;
             _ncRetrying = false;
         }
@@ -450,7 +479,7 @@ internal sealed class SessionController : IDisposable
             _ncWasAuthenticated = false;
             if (!_ncManuallyDisconnected && autoReconnect)
             {
-                _nextNcAttempt = now + NcReconnectDelay;
+                _nextNcAttempt = now + NcDelayAfterDrop(now);
                 _ncRetrying = true;
             }
         }
