@@ -47,9 +47,6 @@ internal sealed class FramedConnection : IDisposable
     /// <summary>Called with a line for the log.</summary>
     public Action<string>? Log { get; set; }
 
-    /// <summary>How many frames in a row may fail to decode before the connection is given up.</summary>
-    public int MaxBadFrames { get; set; } = 8;
-
     public bool IsClosed => Volatile.Read(ref _closed) != 0;
 
     /// <summary>Connects with a timeout; never blocks the calling thread.</summary>
@@ -141,16 +138,32 @@ internal sealed class FramedConnection : IDisposable
     private async Task ReadLoopAsync()
     {
         string reason = "Connection closed";
-        int badFrames = 0;
         byte[] header = new byte[2];
+        byte[] extension = new byte[4];
         try
         {
             while (!IsClosed)
             {
                 await _stream.ReadExactlyAsync(header, _stop.Token).ConfigureAwait(false);
                 int length = (header[0] << 8) | header[1];
-                if (length == 0)
+                if (length == Frames.ExtendedMarker)
                 {
+                    // A frame of 65,535 bytes or more: the marker is followed by a 4-byte length. Reading only two bytes here took the
+                    // marker for a length of 65,535 and the rest of the frame for the next frames.
+                    await _stream.ReadExactlyAsync(extension, _stop.Token).ConfigureAwait(false);
+                    long announced = Frames.ReadExtendedLength(extension);
+                    if (announced == 0 || announced > Frames.MaxFrameBody)
+                    {
+                        reason = $"Protocol error: a frame announced a length of {announced} bytes";
+                        break;
+                    }
+
+                    length = (int)announced;
+                }
+                else if (length == 0)
+                {
+                    // Tolerated, unlike a zero after the extended marker: the log of an earlier session shows empty frames only right
+                    // after a frame that could not be decoded, and nothing shows a server that sends them on purpose.
                     Log?.Invoke("An empty frame was ignored.");
                     continue;
                 }
@@ -159,17 +172,13 @@ internal sealed class FramedConnection : IDisposable
                 await _stream.ReadExactlyAsync(body, _stop.Token).ConfigureAwait(false);
                 if (!_codec.TryDecode(body, out byte[] plaintext))
                 {
-                    Log?.Invoke($"A frame of {length} bytes could not be decoded and was dropped.");
-                    if (++badFrames >= MaxBadFrames)
-                    {
-                        reason = "Protocol error: the server's frames could not be decoded";
-                        break;
-                    }
-
-                    continue;
+                    // Not skipped: the bytes after a frame that cannot be read cannot be trusted either, and decoded as packets they
+                    // show windows and players that do not exist. The reason is kept short because it is shown to the user.
+                    Log?.Invoke($"A frame of {length} bytes (type 0x{body[0]:X2}) could not be decoded; the connection is closed.");
+                    reason = $"Protocol error: a frame of {length} bytes could not be decoded";
+                    break;
                 }
 
-                badFrames = 0;
                 foreach (byte[] packet in _splitter.Push(plaintext))
                 {
                     try

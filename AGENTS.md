@@ -37,8 +37,10 @@ The C++ crashed because of what these rules forbid; they are not style.
    therefore needs no lock, and never touches a control from another thread. Work that takes time (network, files, git, child
    processes) is `async` and never blocks the UI thread.
 2. **Nothing a server sends can throw out of a receive loop.** Packets are read through a bounds-checked reader; a packet that is
-   too short, has a negative length or does not parse is dropped with a log line. A connection that fails ends with one
-   `Disconnected` event carrying the reason.
+   too short, has a negative length or does not parse is dropped with a log line. A frame is different: one whose header announces
+   an impossible length (zero after the `FF FF` marker, over 8 MiB) or whose body cannot be decoded ends the connection with a
+   "Protocol error" reason and is never skipped, because the bytes after it cannot be trusted (decoded as packets they show windows
+   and players that do not exist). A connection that fails ends with one `Disconnected` event carrying the reason.
 3. **Sends are ordered and atomic.** One writer per connection (a queue or a lock) so that two callers can never interleave the
    bytes or the cipher state of two frames.
 4. **Every handler ends in a catch.** No `async void` except event handlers, and those go through the shared helper that logs

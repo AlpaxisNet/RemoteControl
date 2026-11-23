@@ -29,7 +29,7 @@ internal sealed class ServerGen5Codec : IFrameCodec
         return new PreparedFrame(FrameCompression.None, (byte[])plaintext.Clone());
     }
 
-    public byte[] Seal(PreparedFrame frame) => Frames.Seal(frame, frame.Type == 0 ? null : _out, maxBody: 0xFFFF);
+    public byte[] Seal(PreparedFrame frame) => Frames.Seal(frame, frame.Type == 0 ? null : _out, maxBody: Frames.MaxFrameBody);
 
     public bool TryDecode(byte[] body, out byte[] plaintext)
     {
@@ -43,7 +43,7 @@ internal sealed class ServerNcCodec : IFrameCodec
 {
     public PreparedFrame Prepare(byte[] plaintext, bool plain) => new(0, FrameCompression.ZlibCompress(plaintext));
 
-    public byte[] Seal(PreparedFrame frame) => Frames.Seal(frame, null, maxBody: 0xFFFF);
+    public byte[] Seal(PreparedFrame frame) => Frames.Seal(frame, null, maxBody: Frames.MaxFrameBody);
 
     public bool TryDecode(byte[] body, out byte[] plaintext) => FrameCompression.TryZlibDecompress(body, out plaintext);
 }

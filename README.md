@@ -186,7 +186,14 @@ On purpose:
 - With the Alpaxis servers in mind: class scripts and NPC flags are sent one line per string while every line fits in one (223
   bytes); one with a longer line is sent as comma text made so that the server cannot take it for strings, which an Alpaxis server
   that reads both forms tells apart without a guess (an older one cannot take such a line at all). The level list is that comma text
-  too. A frame is at most 32767 bytes (a larger one is refused with a message, never cut), uploads go in pieces of 32000 bytes.
+  too. A frame the program sends is at most 32767 bytes (a larger one is refused with a message, never cut), uploads go in pieces of
+  32000 bytes.
+- A game server may send frames of 65,535 bytes or more (the Alpaxis server does for a big folder listing or a big flag set): such a
+  frame starts with `FF FF` and a four-byte length instead of a two-byte length, and the program reads it. A frame whose header
+  announces an impossible length (zero after the marker, or over 8 MiB) or whose body cannot be decoded ends the connection with a
+  "Protocol error" reason; it is never skipped, because what follows it cannot be trusted (read as packets it shows windows and
+  players that do not exist). The NC connection then reconnects after 1, 5, 30 and 60 seconds when it keeps dropping soon after it
+  came up, instead of every second.
 
 Not there yet:
 

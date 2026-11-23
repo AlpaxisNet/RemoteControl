@@ -36,22 +36,58 @@ internal static class Frames
     public const int MaxClientBody = 0x7FFF;
 
     /// <summary>
+    /// The 16-bit length that announces an extended header: a frame whose body is 65,535 bytes or more is written as
+    /// <c>FF FF</c> and a 4-byte big-endian length, and the body (which starts with the compression type byte) follows as usual.
+    /// </summary>
+    public const int ExtendedMarker = 0xFFFF;
+
+    /// <summary>The largest frame body a server may send; a longer announced length is a protocol error and ends the connection.</summary>
+    public const int MaxFrameBody = 8 * 1024 * 1024;
+
+    /// <summary>
     /// The most plaintext a zlib frame may carry: the Alpaxis server inflates a zlib frame into a fixed 200 KiB buffer and silently
     /// drops the rest.
     /// </summary>
     public const int MaxZlibPlaintext = 204800;
 
-    /// <summary>Prefixes a body with its big-endian 16-bit length.</summary>
+    /// <summary>
+    /// Prefixes a body with its length: big-endian 16 bits, or for a body of 65,535 bytes or more the extended header
+    /// (<see cref="ExtendedMarker"/> and a 4-byte big-endian length).
+    /// </summary>
     public static byte[] WithLength(ReadOnlySpan<byte> body, int maxBody = MaxClientBody)
     {
+        maxBody = Math.Min(maxBody, MaxFrameBody);
         if (body.Length > maxBody)
             throw new PacketTooLongException($"A frame of {body.Length} bytes is larger than the {maxBody} bytes the server can read.");
-        byte[] frame = new byte[body.Length + 2];
-        frame[0] = (byte)(body.Length >> 8);
-        frame[1] = (byte)body.Length;
-        body.CopyTo(frame.AsSpan(2));
+        bool extended = body.Length >= ExtendedMarker;
+        int headerSize = extended ? 6 : 2;
+        byte[] frame = new byte[body.Length + headerSize];
+        if (extended)
+        {
+            frame[0] = 0xFF;
+            frame[1] = 0xFF;
+            frame[2] = (byte)(body.Length >> 24);
+            frame[3] = (byte)(body.Length >> 16);
+            frame[4] = (byte)(body.Length >> 8);
+            frame[5] = (byte)body.Length;
+        }
+        else
+        {
+            frame[0] = (byte)(body.Length >> 8);
+            frame[1] = (byte)body.Length;
+        }
+
+        body.CopyTo(frame.AsSpan(headerSize));
         return frame;
     }
+
+    /// <summary>
+    /// Reads the length that follows an extended marker: four bytes, big-endian, unsigned.
+    /// </summary>
+    /// <param name="extension">The four bytes after the <c>FF FF</c> marker.</param>
+    /// <returns>The announced body length, as a 64-bit number so that a value over two billion is not read as negative.</returns>
+    public static long ReadExtendedLength(ReadOnlySpan<byte> extension) =>
+        ((long)extension[0] << 24) | ((long)extension[1] << 16) | ((long)extension[2] << 8) | extension[3];
 
     /// <summary>Builds the plaintext of one packet: the id as a GByte, the payload and a newline.</summary>
     public static byte[] Packet(int id, ReadOnlySpan<byte> payload)
